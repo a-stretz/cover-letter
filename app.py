@@ -1,6 +1,6 @@
 """
 Job Application Decision & Cover Letter Generator
-Main Flask Application
+Main Flask Application - Streamlined one-button workflow
 """
 
 import os
@@ -9,9 +9,13 @@ from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
-from database import init_db, get_db, save_job_analysis
-from analyzer import analyze_job_description
-from cover_letter import generate_cover_letter, save_cover_letter_docx
+from database import (
+    init_db, get_db, save_job_analysis, update_job_cover_letter,
+    get_jobs_history, get_job_details, save_follow_up_message
+)
+from analyzer import analyze_and_generate
+from cover_letter import save_cover_letter_docx, get_output_directory
+from message_generator import generate_follow_up_message, save_message_to_file
 
 load_dotenv()
 
@@ -31,7 +35,10 @@ def index():
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
-    """Analyze a job description and return decision + recommendations"""
+    """
+    One-button analyze: Analyzes job, generates cover letter if APPLY, auto-saves file.
+    Returns complete analysis with cover letter and file path.
+    """
     data = request.get_json()
 
     if not data or not data.get('job_description'):
@@ -41,127 +48,110 @@ def analyze():
     additional_context = data.get('additional_context', '')
 
     try:
-        # Analyze the job description using Claude API
-        analysis_result = analyze_job_description(job_description, additional_context)
+        # Combined analysis + cover letter generation (single API call)
+        result = analyze_and_generate(job_description, additional_context)
+
+        cover_letter_filepath = None
+
+        # If APPLY and cover letter was generated, auto-save to file
+        if result['decision'] == 'APPLY' and result.get('cover_letter'):
+            cover_letter_filepath = save_cover_letter_docx(
+                content=result['cover_letter'],
+                company_name=result.get('company_name'),
+                job_title=result.get('job_title')
+            )
+            result['cover_letter_filepath'] = cover_letter_filepath
 
         # Save to database
         job_id = save_job_analysis(
             job_description=job_description,
             additional_context=additional_context,
-            analysis_result=analysis_result
+            analysis_result=result,
+            cover_letter_filepath=cover_letter_filepath
         )
 
-        analysis_result['job_id'] = job_id
-        return jsonify(analysis_result)
+        result['job_id'] = job_id
+        return jsonify(result)
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/generate-cover-letter', methods=['POST'])
-def generate_cover():
-    """Generate a cover letter for a job"""
+@app.route('/api/generate-message', methods=['POST'])
+def generate_message():
+    """Generate a follow-up message for a job"""
     data = request.get_json()
 
-    if not data or not data.get('job_id'):
-        return jsonify({'error': 'Job ID is required'}), 400
+    required = ['job_id', 'message_type']
+    for field in required:
+        if not data.get(field):
+            return jsonify({'error': f'{field} is required'}), 400
 
     job_id = data['job_id']
-    company_news = data.get('company_news', '')
-    personal_connection = data.get('personal_connection', '')
-    specific_notes = data.get('specific_notes', '')
+    message_type = data['message_type']
+    audience = data.get('audience', 'recruiter')
+    tone = data.get('tone', 'professional')
+    additional_context = data.get('additional_context', '')
 
     # Get job details from database
-    db = get_db()
-    job = db.execute(
-        'SELECT * FROM jobs_analyzed WHERE id = ?', (job_id,)
-    ).fetchone()
-
+    job = get_job_details(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
 
     try:
-        # Generate cover letter using Claude API
-        cover_letter_body = generate_cover_letter(
-            job_description=job['job_description'],
+        # Generate the message
+        result = generate_follow_up_message(
+            message_type=message_type,
             company_name=job['company_name'],
             job_title=job['job_title'],
-            resume_type=job['recommended_resume'],
-            priority_level=job['priority_level'],
-            company_news=company_news,
-            personal_connection=personal_connection,
-            specific_notes=specific_notes
+            job_description=job['job_description'],
+            audience=audience,
+            tone=tone,
+            additional_context=additional_context
         )
 
-        # Update database with cover letter
-        db.execute(
-            '''UPDATE jobs_analyzed
-               SET cover_letter_body = ?,
-                   customization_inputs_json = ?,
-                   updated_at = CURRENT_TIMESTAMP
-               WHERE id = ?''',
-            (
-                cover_letter_body,
-                json.dumps({
-                    'company_news': company_news,
-                    'personal_connection': personal_connection,
-                    'specific_notes': specific_notes
-                }),
-                job_id
-            )
-        )
-        db.commit()
-
-        return jsonify({
-            'success': True,
-            'cover_letter_body': cover_letter_body,
-            'company_name': job['company_name'],
-            'job_title': job['job_title']
-        })
+        return jsonify(result)
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/save-cover-letter', methods=['POST'])
-def save_cover():
-    """Save the cover letter to a .docx file"""
+@app.route('/api/save-message', methods=['POST'])
+def save_message():
+    """Save a generated message to file"""
     data = request.get_json()
 
-    if not data or not data.get('job_id'):
-        return jsonify({'error': 'Job ID is required'}), 400
+    required = ['job_id', 'message_type', 'message']
+    for field in required:
+        if not data.get(field):
+            return jsonify({'error': f'{field} is required'}), 400
 
     job_id = data['job_id']
+    message_type = data['message_type']
+    message_text = data['message']
+    subject = data.get('subject')
 
-    # Get job details from database
-    db = get_db()
-    job = db.execute(
-        'SELECT * FROM jobs_analyzed WHERE id = ?', (job_id,)
-    ).fetchone()
-
+    # Get job details
+    job = get_job_details(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
 
-    if not job['cover_letter_body']:
-        return jsonify({'error': 'No cover letter generated yet'}), 400
-
     try:
-        # Save to .docx file
-        filepath = save_cover_letter_docx(
-            content=job['cover_letter_body'],
+        output_dir = get_output_directory()
+        filepath = save_message_to_file(
+            message_text=message_text,
+            subject=subject,
             company_name=job['company_name'],
-            job_title=job['job_title']
+            message_type=message_type,
+            output_dir=output_dir
         )
 
-        # Update database with filepath
-        db.execute(
-            '''UPDATE jobs_analyzed
-               SET cover_letter_filepath = ?,
-                   updated_at = CURRENT_TIMESTAMP
-               WHERE id = ?''',
-            (filepath, job_id)
-        )
-        db.commit()
+        # Save to database
+        save_follow_up_message(job_id, message_type, message_text, filepath)
 
         return jsonify({
             'success': True,
@@ -174,31 +164,46 @@ def save_cover():
 
 @app.route('/api/history')
 def history():
-    """Get job analysis history"""
-    db = get_db()
-    jobs = db.execute(
-        '''SELECT id, company_name, job_title, decision, recommended_resume,
-                  priority_level, status, created_at
-           FROM jobs_analyzed
-           ORDER BY created_at DESC
-           LIMIT 100'''
-    ).fetchall()
+    """Get job analysis history with optional filters"""
+    filters = {}
+    if request.args.get('decision'):
+        filters['decision'] = request.args.get('decision')
+    if request.args.get('resume'):
+        filters['resume'] = request.args.get('resume')
+    if request.args.get('priority'):
+        filters['priority'] = request.args.get('priority')
+    if request.args.get('location'):
+        filters['location'] = request.args.get('location')
+    if request.args.get('compensation'):
+        filters['compensation'] = request.args.get('compensation')
 
+    search = request.args.get('search')
+
+    jobs = get_jobs_history(filters=filters if filters else None, search=search)
     return jsonify([dict(job) for job in jobs])
 
 
 @app.route('/api/job/<int:job_id>')
 def get_job(job_id):
-    """Get details for a specific job"""
-    db = get_db()
-    job = db.execute(
-        'SELECT * FROM jobs_analyzed WHERE id = ?', (job_id,)
-    ).fetchone()
+    """Get full details for a specific job"""
+    job = get_job_details(job_id)
 
     if not job:
         return jsonify({'error': 'Job not found'}), 404
 
-    return jsonify(dict(job))
+    # Convert to dict and parse JSON fields
+    job_dict = dict(job)
+
+    # Parse JSON fields
+    json_fields = ['reject_reasons_json', 'priority_reasons_json', 'messages_json']
+    for field in json_fields:
+        if job_dict.get(field):
+            try:
+                job_dict[field] = json.loads(job_dict[field])
+            except json.JSONDecodeError:
+                pass
+
+    return jsonify(job_dict)
 
 
 @app.route('/api/job/<int:job_id>/status', methods=['PUT'])

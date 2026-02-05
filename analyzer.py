@@ -1,6 +1,6 @@
 """
-Job Description Analyzer
-Uses Claude API to analyze job descriptions and make application decisions
+Combined Job Analyzer and Cover Letter Generator
+Single API call for analysis + cover letter generation (if APPLY)
 """
 
 import os
@@ -11,7 +11,8 @@ from profile import (
     get_profile_summary,
     REJECT_CRITERIA,
     RESUME_ROUTING,
-    PRIORITY_TRIGGERS
+    PRIORITY_TRIGGERS,
+    SAMPLE_COVER_LETTERS
 )
 
 
@@ -23,10 +24,7 @@ def get_client():
     return Anthropic(api_key=api_key)
 
 
-ANALYSIS_PROMPT = """You are analyzing a job description to help Austin Stretz decide:
-1. Should he apply? (APPLY or REJECT)
-2. Which resume variant to use? (Edge AI, AI PM, or Traditional PM)
-3. Is this a priority application requiring extra effort?
+COMBINED_PROMPT = """You are analyzing a job description for Austin Stretz and, if he should apply, generating a cover letter.
 
 AUSTIN'S PROFESSIONAL PROFILE:
 {profile}
@@ -50,59 +48,140 @@ ADDITIONAL CONTEXT PROVIDED BY USER:
 
 ---
 
-IMPORTANT INSTRUCTIONS:
-1. Carefully read the job description and identify company name, job title, location, compensation, and required experience.
-2. Apply the auto-reject criteria first. If ANY reject criteria are met, decision MUST be REJECT.
-3. Count keyword occurrences to determine the best resume variant.
-4. Check if any priority triggers apply.
-5. Be specific in your analysis - cite actual text from the job description.
+ANALYSIS INSTRUCTIONS:
 
-Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
+1. DECISION: Determine if Austin should APPLY or REJECT based on criteria above.
+
+2. DECISION SUMMARY: Write 2-3 sentences explaining the decision. Quick at-a-glance: Should he apply? Why/why not?
+
+3. EXPERIENCE MATCH SCORING (use these 4 criteria):
+   - Responsibility Alignment: How Austin's past responsibilities match their needs
+   - Domain Experience: Relevant domain/industry expertise
+   - Technical Skills: Which of Austin's technical skills match
+   - Requirements Fit: How well Austin meets their listed requirements
+
+   Score 1-10:
+   - 9-10: Exceptional fit - Austin's experience directly maps to their needs
+   - 7-8: Strong fit - Majority of experience aligns, minor gaps
+   - 5-6: Moderate fit - Some relevant experience, some gaps
+   - 3-4: Weak fit - Limited overlap, significant gaps
+   - 1-2: Poor fit - Minimal relevant experience
+
+   Write a single cohesive paragraph (4-6 sentences) incorporating all 4 criteria naturally.
+   Be specific about which of Austin's projects/skills match. Mention gaps briefly but honestly.
+
+4. LOCATION: Classify as Remote/Hybrid/Onsite/KC Metro. Note if it fits Austin's preferences.
+
+5. COMPENSATION: Detect salary range if mentioned. Classify as Below Range/In Range/Above Range/Unknown.
+
+6. COMPANY DOMAIN: One sentence describing the company's industry/space.
+
+7. KEYWORDS: List 5-8 key technical/domain keywords from the job posting.
+
+8. RESUME SELECTION: Choose Edge AI, AI PM, or Traditional PM based on keyword analysis.
+
+9. IF DECISION IS APPLY: Generate a cover letter following rules below.
+   IF DECISION IS REJECT: Set cover_letter to null.
+
+---
+
+COVER LETTER RULES (only if APPLY):
+
+BANNED - Never use these:
+- Em-dashes (— or --)
+- "resonated with me"
+- "I was drawn to"
+- "I'm particularly drawn to"
+- Any emphasis on areas where Austin is weak
+
+STYLE:
+- Speak naturally, not like an LLM
+- Use simple punctuation (periods, commas only)
+- Focus on ACTUAL fit with Austin's REAL experience
+- Be specific about which projects/skills match
+- Skip mentioning requirements Austin doesn't meet
+- 3-4 paragraphs, 300-400 words
+- NO bullet points
+
+STRUCTURE:
+1. Opening Hook (1-2 sentences): Show understanding of what makes this role unique.
+   For sports tech: Can open with "This is a dream role."
+   Otherwise: Start with what caught Austin's attention about the role/company.
+
+2. Core Experience (1 paragraph): Pull from Austin's relevant products:
+   - SmartPlayer: UX, analysis, visualization, user-facing AI
+   - Voice Assist: Real-time feedback, AI coaching, NLP/language
+   - Heuristic v4: ML metrics, measurement, technical validation, accuracy
+   - Data QA: Quality, testing, validation, debugging
+   - Onsite platform: Operations, hardware, deployment, field work
+
+3. Technical Credibility (1 paragraph): Show depth without jargon overload.
+
+4. Values/Passion (brief closing): How Austin works + "I would welcome the opportunity..."
+
+SAMPLE COVER LETTERS FOR VOICE REFERENCE:
+{sample_bold}
+
+{sample_conviva}
+
+{sample_hudl}
+
+---
+
+OUTPUT FORMAT - Respond with valid JSON only (no markdown):
 {{
   "decision": "APPLY" or "REJECT",
+  "decision_summary": "2-3 sentence summary of why apply/reject",
+  "company_name": "detected company name or null",
+  "job_title": "detected job title or null",
   "recommended_resume": "Edge AI" or "AI PM" or "Traditional PM",
   "priority_level": "PRIORITY" or "STANDARD" or "REJECT",
-  "company_name": "detected company name or null if not found",
-  "job_title": "detected job title or null if not found",
   "analysis": {{
-    "experience_match": "Strong/Moderate/Weak - explain why with specific examples from job posting",
-    "compensation": "Detected salary range and assessment. Say 'Not specified' if not found",
-    "location": "Remote/Hybrid/Onsite - and whether it fits KC metro requirement",
-    "reject_reasons": ["specific reason 1 with evidence", "reason 2"] or [] if none,
-    "priority_reasons": ["specific reason 1", "reason 2"] or [] if none,
-    "key_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
-    "resume_rationale": "Explain why this resume variant was chosen based on keyword analysis",
-    "extra_touches": ["LinkedIn outreach to hiring manager", "Portfolio artifact: Hoops Metrics case study"] or [] if not priority,
-    "talking_points": ["Specific point for interviews based on job requirements", "Another talking point"] or []
-  }}
+    "location_type": "Remote" or "Hybrid" or "Onsite" or "KC Metro",
+    "location_details": "brief note on location fit",
+    "compensation_range": "detected range or 'Not specified'",
+    "compensation_fit": "Below Range" or "In Range" or "Above Range" or "Unknown",
+    "company_domain": "One sentence about company's industry/space",
+    "experience_match": {{
+      "score": 1-10,
+      "label": "Exceptional Fit" or "Strong Fit" or "Moderate Fit" or "Weak Fit" or "Poor Fit",
+      "summary": "4-6 sentence paragraph incorporating all criteria",
+      "responsibility_alignment": "brief note",
+      "domain_experience": "brief note",
+      "technical_skills": "brief note on matching skills",
+      "requirements_fit": "brief note"
+    }},
+    "keywords_detected": "comma-separated list of 5-8 keywords",
+    "reject_reasons": ["reason1", "reason2"] or [],
+    "priority_reasons": ["reason1", "reason2"] or [],
+    "resume_rationale": "Why this resume variant was chosen"
+  }},
+  "cover_letter": "Full cover letter body text (3-4 paragraphs) or null if REJECT"
 }}"""
 
 
-def analyze_job_description(job_description: str, additional_context: str = "") -> dict:
+def analyze_and_generate(job_description: str, additional_context: str = "") -> dict:
     """
-    Analyze a job description and return application decision + recommendations.
-
-    Args:
-        job_description: The full text of the job description
-        additional_context: Optional additional context from the user
-
-    Returns:
-        Dictionary containing decision, resume type, priority level, and analysis details
+    Analyze job description and generate cover letter in one API call.
+    Returns analysis result with cover letter if decision is APPLY.
     """
     client = get_client()
 
-    prompt = ANALYSIS_PROMPT.format(
+    prompt = COMBINED_PROMPT.format(
         profile=get_profile_summary(),
         reject_criteria=REJECT_CRITERIA,
         resume_routing=RESUME_ROUTING,
         priority_triggers=PRIORITY_TRIGGERS,
         job_description=job_description,
-        additional_context=additional_context or "None provided"
+        additional_context=additional_context or "None provided",
+        sample_bold=SAMPLE_COVER_LETTERS["BOLD"],
+        sample_conviva=SAMPLE_COVER_LETTERS["Conviva"],
+        sample_hudl=SAMPLE_COVER_LETTERS["Hudl"]
     )
 
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
-        max_tokens=2000,
+        max_tokens=4000,
         messages=[
             {
                 "role": "user",
@@ -118,9 +197,7 @@ def analyze_job_description(job_description: str, additional_context: str = "") 
     try:
         # Handle potential markdown code blocks
         if response_text.startswith('```'):
-            # Remove markdown code block markers
             lines = response_text.split('\n')
-            # Remove first and last line if they're code markers
             if lines[0].startswith('```'):
                 lines = lines[1:]
             if lines[-1].strip() == '```':
@@ -130,7 +207,7 @@ def analyze_job_description(job_description: str, additional_context: str = "") 
         result = json.loads(response_text)
 
         # Validate required fields
-        required_fields = ['decision', 'recommended_resume', 'priority_level', 'analysis']
+        required_fields = ['decision', 'decision_summary', 'recommended_resume', 'priority_level', 'analysis']
         for field in required_fields:
             if field not in result:
                 raise ValueError(f"Missing required field: {field}")
@@ -139,17 +216,27 @@ def analyze_job_description(job_description: str, additional_context: str = "") 
         if result['decision'] not in ['APPLY', 'REJECT']:
             raise ValueError(f"Invalid decision value: {result['decision']}")
 
-        # Validate resume type
-        valid_resumes = ['Edge AI', 'AI PM', 'Traditional PM']
-        if result['recommended_resume'] not in valid_resumes:
-            raise ValueError(f"Invalid resume type: {result['recommended_resume']}")
-
-        # Validate priority level
-        valid_priorities = ['PRIORITY', 'STANDARD', 'REJECT']
-        if result['priority_level'] not in valid_priorities:
-            raise ValueError(f"Invalid priority level: {result['priority_level']}")
+        # Clean cover letter if present (remove any banned phrases that slipped through)
+        if result.get('cover_letter'):
+            cover_letter = result['cover_letter']
+            # Remove em-dashes
+            cover_letter = cover_letter.replace('—', ',').replace('--', ',')
+            # Remove banned phrases
+            banned = ['resonated with me', 'I was drawn to', "I'm particularly drawn to"]
+            for phrase in banned:
+                if phrase.lower() in cover_letter.lower():
+                    # Try to remove or rephrase
+                    cover_letter = cover_letter.replace(phrase, 'caught my attention')
+                    cover_letter = cover_letter.replace(phrase.capitalize(), 'This role caught my attention')
+            result['cover_letter'] = cover_letter
 
         return result
 
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse Claude response as JSON: {e}\nResponse: {response_text[:500]}")
+
+
+# Keep the old function for backwards compatibility
+def analyze_job_description(job_description: str, additional_context: str = "") -> dict:
+    """Legacy function - now calls analyze_and_generate"""
+    return analyze_and_generate(job_description, additional_context)
