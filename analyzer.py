@@ -85,39 +85,93 @@ ANALYSIS INSTRUCTIONS:
 
 ---
 
-COVER LETTER RULES (only if APPLY):
+COVER LETTER GENERATION RULES (only if APPLY):
 
-BANNED - Never use these:
-- Em-dashes (— or --)
+You are writing an authentic, professional cover letter that sounds human, grounded, and specific.
+Write in Austin Stretz's natural voice, based strictly on his real experience and the job description.
+Your goal is clarity, credibility, and fit. Not polish for its own sake.
+
+ACCEPTABLE LANGUAGE:
+Use language that is:
+- Plainspoken and professional
+- Specific and concrete
+- Calm, confident, and factual
+- Grounded in real work Austin has done
+- Written the way a strong product manager would speak in a hiring conversation
+
+Preferred phrasing patterns:
+- "I have worked on..."
+- "My role involved..."
+- "I led / owned / supported..."
+- "This role aligns well with my experience in..."
+- "The work you are doing around X matches the type of problems I have been solving..."
+- "I am interested in applying my experience with..."
+
+Use short to medium-length sentences. Vary sentence structure naturally.
+
+BANNED LANGUAGE (DO NOT USE):
+
+Emotional or performative language:
 - "resonated with me"
 - "I was drawn to"
-- "I'm particularly drawn to"
-- Any emphasis on areas where Austin is weak
+- "excited by"
+- "passionate about"
+- "thrilled"
+- "energized"
+- "inspired"
 
-STYLE:
-- Speak naturally, not like an LLM
-- Use simple punctuation (periods, commas only)
-- Focus on ACTUAL fit with Austin's REAL experience
-- Be specific about which projects/skills match
-- Skip mentioning requirements Austin doesn't meet
-- 3-4 paragraphs, 300-400 words
-- NO bullet points
+Generic enthusiasm or filler:
+- "This opportunity feels like a perfect fit"
+- "I would love the chance"
+- "I am eager to contribute"
+- "cutting-edge"
+- "fast-paced environment"
+- "innovative solutions"
+- "next-generation"
 
-STRUCTURE:
-1. Opening Hook (1-2 sentences): Show understanding of what makes this role unique.
-   For sports tech: Can open with "This is a dream role."
-   Otherwise: Start with what caught Austin's attention about the role/company.
+LLM-style patterns:
+- Abstract mission statements
+- Vague impact claims
+- Rephrasing the job description
+- Over-explaining obvious concepts
 
-2. Core Experience (1 paragraph): Pull from Austin's relevant products:
-   - SmartPlayer: UX, analysis, visualization, user-facing AI
-   - Voice Assist: Real-time feedback, AI coaching, NLP/language
-   - Heuristic v4: ML metrics, measurement, technical validation, accuracy
-   - Data QA: Quality, testing, validation, debugging
-   - Onsite platform: Operations, hardware, deployment, field work
+Defensive or compensating language:
+- Mentioning skills Austin does not have
+- Justifying gaps or missing requirements
+- Hedging phrases such as "while I may not have..."
+- Highlighting learning curves or weaknesses
 
-3. Technical Credibility (1 paragraph): Show depth without jargon overload.
+Punctuation violations:
+- No em dashes (— or --)
+- No exclamation points
+- No semicolons
+- No emojis
+- Only periods and commas are allowed
 
-4. Values/Passion (brief closing): How Austin works + "I would welcome the opportunity..."
+CONTENT RULES:
+- Every skill or experience mentioned must be real and defensible
+- Only reference qualifications that clearly match the job description
+- Do not invent tools, industries, or scope
+- Do not oversell or exaggerate impact
+- If a requirement does not match Austin's experience, ignore it entirely
+
+STRUCTURE (EXACTLY 3 PARAGRAPHS):
+
+Paragraph 1:
+- State interest in the role and company
+- Reference the company's product, platform, or problem space
+- The opening should sound intentional and role-specific
+
+Paragraph 2:
+- Connect Austin's real experience directly to the role
+- Reference concrete work: systems owned, products shipped, workflows defined, teams partnered with
+- Pull from: SmartPlayer, Voice Assist, Heuristic v4, Data QA, Onsite platform
+- Focus on fit, not aspiration
+
+Paragraph 3:
+- Close professionally and calmly
+- Reinforce alignment and interest
+- No dramatic or emotional language
 
 SAMPLE COVER LETTERS FOR VOICE REFERENCE:
 {sample_bold}
@@ -156,8 +210,177 @@ OUTPUT FORMAT - Respond with valid JSON only (no markdown):
     "priority_reasons": ["reason1", "reason2"] or [],
     "resume_rationale": "Why this resume variant was chosen"
   }},
-  "cover_letter": "Full cover letter body text (3-4 paragraphs) or null if REJECT"
+  "cover_letter": "Full cover letter body text (exactly 3 paragraphs) or null if REJECT"
 }}"""
+
+
+COVER_LETTER_ONLY_PROMPT = """You are writing an authentic, professional cover letter for Austin Stretz.
+Write in his natural voice, based strictly on his real experience and the job description.
+Your goal is clarity, credibility, and fit. Not polish for its own sake.
+
+AUSTIN'S PROFESSIONAL PROFILE:
+{profile}
+
+JOB DESCRIPTION:
+{job_description}
+
+COMPANY: {company_name}
+JOB TITLE: {job_title}
+RESUME VARIANT: {resume_type}
+
+---
+
+ACCEPTABLE LANGUAGE:
+Use language that is:
+- Plainspoken and professional
+- Specific and concrete
+- Calm, confident, and factual
+- Grounded in real work Austin has done
+- Written the way a strong product manager would speak in a hiring conversation
+
+Preferred phrasing patterns:
+- "I have worked on..."
+- "My role involved..."
+- "I led / owned / supported..."
+- "This role aligns well with my experience in..."
+- "The work you are doing around X matches the type of problems I have been solving..."
+- "I am interested in applying my experience with..."
+
+Use short to medium-length sentences. Vary sentence structure naturally.
+
+BANNED LANGUAGE (DO NOT USE):
+
+Emotional or performative language:
+- "resonated with me"
+- "I was drawn to"
+- "excited by"
+- "passionate about"
+- "thrilled"
+- "energized"
+- "inspired"
+
+Generic enthusiasm or filler:
+- "This opportunity feels like a perfect fit"
+- "I would love the chance"
+- "I am eager to contribute"
+- "cutting-edge"
+- "fast-paced environment"
+- "innovative solutions"
+- "next-generation"
+
+LLM-style patterns:
+- Abstract mission statements
+- Vague impact claims
+- Rephrasing the job description
+- Over-explaining obvious concepts
+
+Defensive or compensating language:
+- Mentioning skills Austin does not have
+- Justifying gaps or missing requirements
+- Hedging phrases such as "while I may not have..."
+- Highlighting learning curves or weaknesses
+
+Punctuation violations:
+- No em dashes (— or --)
+- No exclamation points
+- No semicolons
+- No emojis
+- Only periods and commas are allowed
+
+CONTENT RULES:
+- Every skill or experience mentioned must be real and defensible
+- Only reference qualifications that clearly match the job description
+- Do not invent tools, industries, or scope
+- Do not oversell or exaggerate impact
+- If a requirement does not match Austin's experience, ignore it entirely
+
+STRUCTURE (EXACTLY 3 PARAGRAPHS):
+
+Paragraph 1:
+- State interest in the role and company
+- Reference the company's product, platform, or problem space
+- The opening should sound intentional and role-specific
+
+Paragraph 2:
+- Connect Austin's real experience directly to the role
+- Reference concrete work: systems owned, products shipped, workflows defined, teams partnered with
+- Pull from: SmartPlayer, Voice Assist, Heuristic v4, Data QA, Onsite platform at NeoSavant
+- Focus on fit, not aspiration
+
+Paragraph 3:
+- Close professionally and calmly
+- Reinforce alignment and interest
+- No dramatic or emotional language
+
+SAMPLE COVER LETTERS FOR VOICE REFERENCE:
+{sample_bold}
+
+{sample_conviva}
+
+{sample_hudl}
+
+---
+
+Generate ONLY the cover letter body (exactly 3 paragraphs).
+No header, greeting, or closing signature. The system adds those.
+Output plain text ready to insert into a document."""
+
+
+# Extended list of banned phrases for post-processing
+BANNED_PHRASES = [
+    "resonated with me",
+    "I was drawn to",
+    "I'm particularly drawn to",
+    "excited by",
+    "passionate about",
+    "thrilled",
+    "energized",
+    "inspired by",
+    "This opportunity feels like a perfect fit",
+    "I would love the chance",
+    "I am eager to contribute",
+    "cutting-edge",
+    "fast-paced environment",
+    "innovative solutions",
+    "next-generation",
+    "while I may not have",
+    "although I lack",
+    "I'm excited to",
+    "I'm thrilled to",
+]
+
+
+def clean_cover_letter(cover_letter: str) -> str:
+    """Clean cover letter of banned phrases and punctuation"""
+    if not cover_letter:
+        return cover_letter
+
+    # Remove em-dashes
+    cover_letter = cover_letter.replace('—', ',').replace('--', ',')
+
+    # Remove exclamation points
+    cover_letter = cover_letter.replace('!', '.')
+
+    # Remove semicolons
+    cover_letter = cover_letter.replace(';', ',')
+
+    # Remove banned phrases (case-insensitive replacement)
+    for phrase in BANNED_PHRASES:
+        # Check for the phrase in various cases
+        if phrase.lower() in cover_letter.lower():
+            # Find and replace (preserving surrounding text)
+            import re
+            pattern = re.compile(re.escape(phrase), re.IGNORECASE)
+            # Replace with empty string or neutral alternative
+            cover_letter = pattern.sub('', cover_letter)
+
+    # Clean up any double spaces or awkward punctuation left behind
+    cover_letter = cover_letter.replace('  ', ' ')
+    cover_letter = cover_letter.replace(' ,', ',')
+    cover_letter = cover_letter.replace(',,', ',')
+    cover_letter = cover_letter.replace('..', '.')
+
+    return cover_letter.strip()
 
 
 def analyze_and_generate(job_description: str, additional_context: str = "") -> dict:
@@ -216,19 +439,9 @@ def analyze_and_generate(job_description: str, additional_context: str = "") -> 
         if result['decision'] not in ['APPLY', 'REJECT']:
             raise ValueError(f"Invalid decision value: {result['decision']}")
 
-        # Clean cover letter if present (remove any banned phrases that slipped through)
+        # Clean cover letter if present
         if result.get('cover_letter'):
-            cover_letter = result['cover_letter']
-            # Remove em-dashes
-            cover_letter = cover_letter.replace('—', ',').replace('--', ',')
-            # Remove banned phrases
-            banned = ['resonated with me', 'I was drawn to', "I'm particularly drawn to"]
-            for phrase in banned:
-                if phrase.lower() in cover_letter.lower():
-                    # Try to remove or rephrase
-                    cover_letter = cover_letter.replace(phrase, 'caught my attention')
-                    cover_letter = cover_letter.replace(phrase.capitalize(), 'This role caught my attention')
-            result['cover_letter'] = cover_letter
+            result['cover_letter'] = clean_cover_letter(result['cover_letter'])
 
         return result
 
@@ -240,55 +453,6 @@ def analyze_and_generate(job_description: str, additional_context: str = "") -> 
 def analyze_job_description(job_description: str, additional_context: str = "") -> dict:
     """Legacy function - now calls analyze_and_generate"""
     return analyze_and_generate(job_description, additional_context)
-
-
-COVER_LETTER_ONLY_PROMPT = """Generate a cover letter for Austin Stretz applying to this role.
-
-AUSTIN'S PROFESSIONAL PROFILE:
-{profile}
-
-JOB DESCRIPTION:
-{job_description}
-
-COMPANY: {company_name}
-JOB TITLE: {job_title}
-RESUME VARIANT: {resume_type}
-
----
-
-COVER LETTER RULES:
-
-BANNED - Never use these:
-- Em-dashes (— or --)
-- "resonated with me"
-- "I was drawn to"
-- "I'm particularly drawn to"
-
-STYLE:
-- Speak naturally, not like an LLM
-- Use simple punctuation (periods, commas only)
-- Focus on ACTUAL fit with Austin's REAL experience
-- Be specific about which projects/skills match
-- 3-4 paragraphs, 300-400 words
-- NO bullet points
-
-STRUCTURE:
-1. Opening Hook (1-2 sentences): Show understanding of what makes this role unique.
-2. Core Experience (1 paragraph): Pull from Austin's relevant products (SmartPlayer, Voice Assist, Heuristic v4, etc.)
-3. Technical Credibility (1 paragraph): Show depth without jargon overload.
-4. Values/Passion (brief closing): How Austin works + "I would welcome the opportunity..."
-
-SAMPLE COVER LETTERS FOR VOICE REFERENCE:
-{sample_bold}
-
-{sample_conviva}
-
-{sample_hudl}
-
----
-
-Generate ONLY the cover letter body paragraphs. No header, greeting, or closing signature.
-Output plain text that will be inserted into a document."""
 
 
 def generate_cover_letter_only(
@@ -328,12 +492,5 @@ def generate_cover_letter_only(
 
     cover_letter = message.content[0].text.strip()
 
-    # Clean up banned phrases
-    cover_letter = cover_letter.replace('—', ',').replace('--', ',')
-    banned = ['resonated with me', 'I was drawn to', "I'm particularly drawn to"]
-    for phrase in banned:
-        if phrase.lower() in cover_letter.lower():
-            cover_letter = cover_letter.replace(phrase, 'caught my attention')
-            cover_letter = cover_letter.replace(phrase.capitalize(), 'This role caught my attention')
-
-    return cover_letter
+    # Clean the cover letter
+    return clean_cover_letter(cover_letter)
