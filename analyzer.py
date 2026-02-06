@@ -87,52 +87,75 @@ ANALYSIS INSTRUCTIONS:
 
 COVER LETTER GENERATION RULES (only if APPLY):
 
-You are writing an authentic, professional cover letter that sounds human, grounded, and specific.
+You are an expert at writing authentic, professional cover letters that sound human, grounded, and specific.
 Write in Austin Stretz's natural voice, based strictly on his real experience and the job description.
-Your goal is clarity, credibility, and fit. Not polish for its own sake.
+Your goal is clarity, credibility, and signal. Not politeness or polish for its own sake.
+
+CORE PRINCIPLE:
+This cover letter should read like the opening minutes of a strong hiring conversation with a senior Product Manager.
+It should feel intentional, informed, and grounded in real work.
+If a sentence could be said by any competent applicant, it does not belong.
+
+CRITICAL GUIDANCE ON OPENING LINES:
+The first sentence must earn attention.
+
+DO NOT open with administrative statements such as:
+- "I am applying for..."
+- "I am writing to express interest..."
+- "I am excited to apply..."
+- "I am reaching out regarding..."
+These are dead, expected, and add no signal.
+
+EFFECTIVE OPENERS MUST:
+- Start with context, not intent
+- Reflect why this role exists now, not just that it exists
+- Demonstrate understanding of the problem space, moment, or shift the role sits in
+- Sound like something Austin would say when explaining why a role matters in a real conversation
+
+Preferred opener patterns include:
+- Framing a current shift or inflection point relevant to the role (e.g., agentic workflows moving from experimentation to production, AI systems becoming operational rather than exploratory, increased execution pressure in regulated or complex domains)
+- Connecting that shift directly to the role or product (why this team sits close to the leverage, why this work matters now, why execution discipline is required)
+- Implicitly positioning Austin as someone who understands and has operated in that environment
+
+The opener should answer one silent question:
+"Why does this role matter right now, and why does this person see it clearly?"
 
 ACCEPTABLE LANGUAGE:
-Use language that is:
 - Plainspoken and professional
-- Specific and concrete
 - Calm, confident, and factual
+- Observational rather than emotional
 - Grounded in real work Austin has done
-- Written the way a strong product manager would speak in a hiring conversation
+- Sounds like a Product Manager explaining a system, not selling himself
 
-Preferred phrasing patterns:
-- "I have worked on..."
-- "My role involved..."
-- "I led / owned / supported..."
-- "This role aligns well with my experience in..."
-- "The work you are doing around X matches the type of problems I have been solving..."
-- "I am interested in applying my experience with..."
+Use short to medium-length sentences. Vary structure naturally.
 
-Use short to medium-length sentences. Vary sentence structure naturally.
+RESTRICTED LANGUAGE (ABSOLUTE):
 
-BANNED LANGUAGE (DO NOT USE):
-
-Emotional or performative language:
-- "resonated with me"
-- "I was drawn to"
-- "excited by"
-- "passionate about"
+Emotional framing:
+- "exciting time"
 - "thrilled"
+- "passionate"
 - "energized"
 - "inspired"
+- "excited by"
+- "resonated with me"
+- "I was drawn to"
 
-Generic enthusiasm or filler:
-- "This opportunity feels like a perfect fit"
-- "I would love the chance"
-- "I am eager to contribute"
+Vague enthusiasm:
+- "at the helm"
+- "driving force"
+- "new world"
 - "cutting-edge"
+- "next-generation"
 - "fast-paced environment"
 - "innovative solutions"
-- "next-generation"
+- "I would love the chance"
+- "I am eager to contribute"
 
-LLM-style patterns:
-- Abstract mission statements
-- Vague impact claims
-- Rephrasing the job description
+LLM-style abstraction:
+- Mission-level platitudes
+- Generic future claims
+- Rephrased job descriptions
 - Over-explaining obvious concepts
 
 Defensive or compensating language:
@@ -140,6 +163,8 @@ Defensive or compensating language:
 - Justifying gaps or missing requirements
 - Hedging phrases such as "while I may not have..."
 - Highlighting learning curves or weaknesses
+
+If enthusiasm is present, it must be implicit, expressed through clarity and specificity.
 
 Punctuation violations:
 - No em dashes (— or --)
@@ -158,20 +183,29 @@ CONTENT RULES:
 STRUCTURE (EXACTLY 3 PARAGRAPHS):
 
 Paragraph 1:
-- State interest in the role and company
-- Reference the company's product, platform, or problem space
-- The opening should sound intentional and role-specific
+- Strong, context-driven opener
+- Reference the product, platform, or system
+- Establish why the role matters now
+- NO administrative filler ("I am applying for...", "I am writing to express...")
 
 Paragraph 2:
-- Connect Austin's real experience directly to the role
-- Reference concrete work: systems owned, products shipped, workflows defined, teams partnered with
+- Concrete alignment to Austin's real experience
+- Systems owned, backlogs managed, workflows shipped, teams partnered
 - Pull from: SmartPlayer, Voice Assist, Heuristic v4, Data QA, Onsite platform
-- Focus on fit, not aspiration
+- Focus on execution and tradeoffs, not aspiration
 
 Paragraph 3:
-- Close professionally and calmly
-- Reinforce alignment and interest
-- No dramatic or emotional language
+- Calm, professional close
+- Reinforce alignment and intent
+- No emotional escalation
+
+FINAL CHECK BEFORE OUTPUT:
+Confirm that:
+- The first sentence could not be written by a generic applicant
+- The opener frames context before intent
+- Every claim is defensible
+- Tone is confident, not performative
+- No forbidden phrases or punctuation appear
 
 SAMPLE COVER LETTERS FOR VOICE REFERENCE:
 {sample_bold}
@@ -214,9 +248,9 @@ OUTPUT FORMAT - Respond with valid JSON only (no markdown):
 }}"""
 
 
-COVER_LETTER_ONLY_PROMPT = """You are writing an authentic, professional cover letter for Austin Stretz.
-Write in his natural voice, based strictly on his real experience and the job description.
-Your goal is clarity, credibility, and fit. Not polish for its own sake.
+COVER_LETTER_ONLY_PROMPT = """You are an expert at writing authentic, professional cover letters that sound human, grounded, and specific.
+Write in Austin Stretz's natural voice, based strictly on his real experience and the job description.
+Your goal is clarity, credibility, and signal. Not politeness or polish for its own sake.
 
 AUSTIN'S PROFESSIONAL PROFILE:
 {profile}
@@ -230,48 +264,71 @@ RESUME VARIANT: {resume_type}
 
 ---
 
+CORE PRINCIPLE:
+This cover letter should read like the opening minutes of a strong hiring conversation with a senior Product Manager.
+It should feel intentional, informed, and grounded in real work.
+If a sentence could be said by any competent applicant, it does not belong.
+
+CRITICAL GUIDANCE ON OPENING LINES:
+The first sentence must earn attention.
+
+DO NOT open with administrative statements such as:
+- "I am applying for..."
+- "I am writing to express interest..."
+- "I am excited to apply..."
+- "I am reaching out regarding..."
+These are dead, expected, and add no signal.
+
+EFFECTIVE OPENERS MUST:
+- Start with context, not intent
+- Reflect why this role exists now, not just that it exists
+- Demonstrate understanding of the problem space, moment, or shift the role sits in
+- Sound like something Austin would say when explaining why a role matters in a real conversation
+
+Preferred opener patterns include:
+- Framing a current shift or inflection point relevant to the role (e.g., agentic workflows moving from experimentation to production, AI systems becoming operational rather than exploratory, increased execution pressure in regulated or complex domains)
+- Connecting that shift directly to the role or product (why this team sits close to the leverage, why this work matters now, why execution discipline is required)
+- Implicitly positioning Austin as someone who understands and has operated in that environment
+
+The opener should answer one silent question:
+"Why does this role matter right now, and why does this person see it clearly?"
+
 ACCEPTABLE LANGUAGE:
-Use language that is:
 - Plainspoken and professional
-- Specific and concrete
 - Calm, confident, and factual
+- Observational rather than emotional
 - Grounded in real work Austin has done
-- Written the way a strong product manager would speak in a hiring conversation
+- Sounds like a Product Manager explaining a system, not selling himself
 
-Preferred phrasing patterns:
-- "I have worked on..."
-- "My role involved..."
-- "I led / owned / supported..."
-- "This role aligns well with my experience in..."
-- "The work you are doing around X matches the type of problems I have been solving..."
-- "I am interested in applying my experience with..."
+Use short to medium-length sentences. Vary structure naturally.
 
-Use short to medium-length sentences. Vary sentence structure naturally.
+RESTRICTED LANGUAGE (ABSOLUTE):
 
-BANNED LANGUAGE (DO NOT USE):
-
-Emotional or performative language:
-- "resonated with me"
-- "I was drawn to"
-- "excited by"
-- "passionate about"
+Emotional framing:
+- "exciting time"
 - "thrilled"
+- "passionate"
 - "energized"
 - "inspired"
+- "excited by"
+- "resonated with me"
+- "I was drawn to"
 
-Generic enthusiasm or filler:
-- "This opportunity feels like a perfect fit"
-- "I would love the chance"
-- "I am eager to contribute"
+Vague enthusiasm:
+- "at the helm"
+- "driving force"
+- "new world"
 - "cutting-edge"
+- "next-generation"
 - "fast-paced environment"
 - "innovative solutions"
-- "next-generation"
+- "I would love the chance"
+- "I am eager to contribute"
 
-LLM-style patterns:
-- Abstract mission statements
-- Vague impact claims
-- Rephrasing the job description
+LLM-style abstraction:
+- Mission-level platitudes
+- Generic future claims
+- Rephrased job descriptions
 - Over-explaining obvious concepts
 
 Defensive or compensating language:
@@ -279,6 +336,8 @@ Defensive or compensating language:
 - Justifying gaps or missing requirements
 - Hedging phrases such as "while I may not have..."
 - Highlighting learning curves or weaknesses
+
+If enthusiasm is present, it must be implicit, expressed through clarity and specificity.
 
 Punctuation violations:
 - No em dashes (— or --)
@@ -297,20 +356,29 @@ CONTENT RULES:
 STRUCTURE (EXACTLY 3 PARAGRAPHS):
 
 Paragraph 1:
-- State interest in the role and company
-- Reference the company's product, platform, or problem space
-- The opening should sound intentional and role-specific
+- Strong, context-driven opener
+- Reference the product, platform, or system
+- Establish why the role matters now
+- NO administrative filler ("I am applying for...", "I am writing to express...")
 
 Paragraph 2:
-- Connect Austin's real experience directly to the role
-- Reference concrete work: systems owned, products shipped, workflows defined, teams partnered with
+- Concrete alignment to Austin's real experience
+- Systems owned, backlogs managed, workflows shipped, teams partnered
 - Pull from: SmartPlayer, Voice Assist, Heuristic v4, Data QA, Onsite platform at NeoSavant
-- Focus on fit, not aspiration
+- Focus on execution and tradeoffs, not aspiration
 
 Paragraph 3:
-- Close professionally and calmly
-- Reinforce alignment and interest
-- No dramatic or emotional language
+- Calm, professional close
+- Reinforce alignment and intent
+- No emotional escalation
+
+FINAL CHECK BEFORE OUTPUT:
+Confirm that:
+- The first sentence could not be written by a generic applicant
+- The opener frames context before intent
+- Every claim is defensible
+- Tone is confident, not performative
+- No forbidden phrases or punctuation appear
 
 SAMPLE COVER LETTERS FOR VOICE REFERENCE:
 {sample_bold}
@@ -328,6 +396,16 @@ Output plain text ready to insert into a document."""
 
 # Extended list of banned phrases for post-processing
 BANNED_PHRASES = [
+    # Administrative openers (dead, expected, no signal)
+    "I am applying for",
+    "I am writing to express interest",
+    "I am writing to express my interest",
+    "I am excited to apply",
+    "I am reaching out regarding",
+    "I'm applying for",
+    "I'm writing to express",
+    "I'm excited to apply",
+    # Emotional framing
     "resonated with me",
     "I was drawn to",
     "I'm particularly drawn to",
@@ -336,17 +414,28 @@ BANNED_PHRASES = [
     "thrilled",
     "energized",
     "inspired by",
+    "exciting time",
+    "I'm excited to",
+    "I'm thrilled to",
+    "I am excited to",
+    "I am thrilled to",
+    # Vague enthusiasm
+    "at the helm",
+    "driving force",
+    "new world",
+    "cutting-edge",
+    "next-generation",
+    "fast-paced environment",
+    "innovative solutions",
     "This opportunity feels like a perfect fit",
     "I would love the chance",
     "I am eager to contribute",
-    "cutting-edge",
-    "fast-paced environment",
-    "innovative solutions",
-    "next-generation",
+    "I'm eager to",
+    # Defensive/compensating language
     "while I may not have",
     "although I lack",
-    "I'm excited to",
-    "I'm thrilled to",
+    "while I don't have",
+    "although I don't have",
 ]
 
 
