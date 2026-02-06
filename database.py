@@ -29,8 +29,8 @@ def init_db():
     """Initialize database with schema"""
     db = get_db()
 
-    db.executescript('''
-        -- Jobs analyzed with enhanced tracking
+    # Create the main table with ALL columns defined upfront
+    db.execute('''
         CREATE TABLE IF NOT EXISTS jobs_analyzed (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             job_description TEXT NOT NULL,
@@ -82,22 +82,32 @@ def init_db():
 
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        -- Create indexes for fast filtering
-        CREATE INDEX IF NOT EXISTS idx_jobs_decision ON jobs_analyzed(decision);
-        CREATE INDEX IF NOT EXISTS idx_jobs_priority ON jobs_analyzed(priority_level);
-        CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs_analyzed(status);
-        CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs_analyzed(company_name);
-        CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs_analyzed(created_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_jobs_resume ON jobs_analyzed(recommended_resume);
-        CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs_analyzed(location_type);
-        CREATE INDEX IF NOT EXISTS idx_jobs_comp_fit ON jobs_analyzed(compensation_fit);
+        )
     ''')
 
-    # Check if we need to migrate existing table (add new columns)
+    # Create indexes separately (after table exists with all columns)
+    indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_jobs_decision ON jobs_analyzed(decision)",
+        "CREATE INDEX IF NOT EXISTS idx_jobs_priority ON jobs_analyzed(priority_level)",
+        "CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs_analyzed(status)",
+        "CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs_analyzed(company_name)",
+        "CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs_analyzed(created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_jobs_resume ON jobs_analyzed(recommended_resume)",
+        "CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs_analyzed(location_type)",
+        "CREATE INDEX IF NOT EXISTS idx_jobs_comp_fit ON jobs_analyzed(compensation_fit)",
+    ]
+
+    for index_sql in indexes:
+        try:
+            db.execute(index_sql)
+        except sqlite3.OperationalError:
+            pass  # Index might already exist or column missing in old DB
+
+    db.commit()
+
+    # Migration: Add new columns to existing tables if they don't exist
     cursor = db.execute("PRAGMA table_info(jobs_analyzed)")
-    columns = [row[1] for row in cursor.fetchall()]
+    existing_columns = [row[1] for row in cursor.fetchall()]
 
     new_columns = [
         ("decision_summary", "TEXT"),
@@ -119,7 +129,7 @@ def init_db():
     ]
 
     for col_name, col_type in new_columns:
-        if col_name not in columns:
+        if col_name not in existing_columns:
             try:
                 db.execute(f"ALTER TABLE jobs_analyzed ADD COLUMN {col_name} {col_type}")
             except sqlite3.OperationalError:
@@ -214,6 +224,7 @@ def update_job_cover_letter(job_id, filepath):
 def save_follow_up_message(job_id, message_type, message_text, filepath):
     """Save a follow-up message for a job"""
     db = get_db()
+    from datetime import datetime
 
     # Get existing messages
     job = db.execute('SELECT messages_json FROM jobs_analyzed WHERE id = ?', (job_id,)).fetchone()
@@ -224,7 +235,7 @@ def save_follow_up_message(job_id, message_type, message_text, filepath):
         'type': message_type,
         'text': message_text,
         'filepath': filepath,
-        'created_at': sqlite3.datetime.datetime.now().isoformat() if hasattr(sqlite3, 'datetime') else None
+        'created_at': datetime.now().isoformat()
     })
 
     db.execute(
