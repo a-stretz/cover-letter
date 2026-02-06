@@ -79,6 +79,69 @@ def analyze():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/override-reject', methods=['POST'])
+def override_reject():
+    """
+    Override a REJECT decision: generates cover letter anyway and saves to file.
+    Used when user wants to apply despite the automated rejection.
+    """
+    data = request.get_json()
+
+    if not data or not data.get('job_id'):
+        return jsonify({'error': 'Job ID is required'}), 400
+
+    job_id = data['job_id']
+
+    # Get job details from database
+    job = get_job_details(job_id)
+    if not job:
+        return jsonify({'error': 'Job not found'}), 404
+
+    try:
+        from analyzer import generate_cover_letter_only
+
+        # Generate cover letter for this job
+        cover_letter = generate_cover_letter_only(
+            job_description=job['job_description'],
+            company_name=job['company_name'],
+            job_title=job['job_title'],
+            resume_type=job['recommended_resume'] or 'Traditional PM',
+            priority_level='STANDARD'
+        )
+
+        # Save to file
+        cover_letter_filepath = save_cover_letter_docx(
+            content=cover_letter,
+            company_name=job['company_name'],
+            job_title=job['job_title']
+        )
+
+        # Update database to mark as overridden
+        db = get_db()
+        db.execute(
+            '''UPDATE jobs_analyzed
+               SET decision = 'APPLY',
+                   decision_summary = decision_summary || ' [OVERRIDE: User chose to apply anyway]',
+                   cover_letter_filepath = ?,
+                   cover_letter_generated = 1,
+                   updated_at = CURRENT_TIMESTAMP
+               WHERE id = ?''',
+            (cover_letter_filepath, job_id)
+        )
+        db.commit()
+
+        return jsonify({
+            'success': True,
+            'cover_letter': cover_letter,
+            'cover_letter_filepath': cover_letter_filepath
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/generate-message', methods=['POST'])
 def generate_message():
     """Generate a follow-up message for a job"""

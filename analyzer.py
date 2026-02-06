@@ -240,3 +240,100 @@ def analyze_and_generate(job_description: str, additional_context: str = "") -> 
 def analyze_job_description(job_description: str, additional_context: str = "") -> dict:
     """Legacy function - now calls analyze_and_generate"""
     return analyze_and_generate(job_description, additional_context)
+
+
+COVER_LETTER_ONLY_PROMPT = """Generate a cover letter for Austin Stretz applying to this role.
+
+AUSTIN'S PROFESSIONAL PROFILE:
+{profile}
+
+JOB DESCRIPTION:
+{job_description}
+
+COMPANY: {company_name}
+JOB TITLE: {job_title}
+RESUME VARIANT: {resume_type}
+
+---
+
+COVER LETTER RULES:
+
+BANNED - Never use these:
+- Em-dashes (— or --)
+- "resonated with me"
+- "I was drawn to"
+- "I'm particularly drawn to"
+
+STYLE:
+- Speak naturally, not like an LLM
+- Use simple punctuation (periods, commas only)
+- Focus on ACTUAL fit with Austin's REAL experience
+- Be specific about which projects/skills match
+- 3-4 paragraphs, 300-400 words
+- NO bullet points
+
+STRUCTURE:
+1. Opening Hook (1-2 sentences): Show understanding of what makes this role unique.
+2. Core Experience (1 paragraph): Pull from Austin's relevant products (SmartPlayer, Voice Assist, Heuristic v4, etc.)
+3. Technical Credibility (1 paragraph): Show depth without jargon overload.
+4. Values/Passion (brief closing): How Austin works + "I would welcome the opportunity..."
+
+SAMPLE COVER LETTERS FOR VOICE REFERENCE:
+{sample_bold}
+
+{sample_conviva}
+
+{sample_hudl}
+
+---
+
+Generate ONLY the cover letter body paragraphs. No header, greeting, or closing signature.
+Output plain text that will be inserted into a document."""
+
+
+def generate_cover_letter_only(
+    job_description: str,
+    company_name: str,
+    job_title: str,
+    resume_type: str,
+    priority_level: str
+) -> str:
+    """
+    Generate just a cover letter without full analysis.
+    Used for override scenarios where user wants to apply despite rejection.
+    """
+    client = get_client()
+
+    prompt = COVER_LETTER_ONLY_PROMPT.format(
+        profile=get_profile_summary(),
+        job_description=job_description,
+        company_name=company_name or "Unknown Company",
+        job_title=job_title or "Product Role",
+        resume_type=resume_type,
+        sample_bold=SAMPLE_COVER_LETTERS["BOLD"],
+        sample_conviva=SAMPLE_COVER_LETTERS["Conviva"],
+        sample_hudl=SAMPLE_COVER_LETTERS["Hudl"]
+    )
+
+    message = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=1500,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+
+    cover_letter = message.content[0].text.strip()
+
+    # Clean up banned phrases
+    cover_letter = cover_letter.replace('—', ',').replace('--', ',')
+    banned = ['resonated with me', 'I was drawn to', "I'm particularly drawn to"]
+    for phrase in banned:
+        if phrase.lower() in cover_letter.lower():
+            cover_letter = cover_letter.replace(phrase, 'caught my attention')
+            cover_letter = cover_letter.replace(phrase.capitalize(), 'This role caught my attention')
+
+    return cover_letter

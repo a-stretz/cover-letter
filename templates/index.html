@@ -327,6 +327,32 @@
             color: #721c24;
         }
 
+        /* Override Section */
+        .override-section {
+            background: #fff3cd;
+            border: 2px dashed #ffc107;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .btn-override {
+            background: linear-gradient(135deg, #fd7e14, #e55a00);
+            color: white;
+            padding: 12px 24px;
+            font-weight: 600;
+        }
+        .btn-override:hover:not(:disabled) {
+            box-shadow: 0 4px 12px rgba(253,126,20,0.3);
+        }
+        .override-hint {
+            color: #856404;
+            font-size: 0.85rem;
+        }
+
         /* Cover Letter Section */
         .cover-letter-section { margin-top: 20px; }
         .cover-letter-header {
@@ -587,6 +613,14 @@
                     <div id="rejectReasons" class="reject-reasons" style="display:none;">
                         <h4>Rejection Reasons</h4>
                         <ul id="rejectList"></ul>
+                    </div>
+
+                    <!-- Override Section (only for REJECT) -->
+                    <div id="overrideSection" class="override-section" style="display:none;">
+                        <button class="btn btn-override" id="overrideBtn" onclick="overrideReject()">
+                            OVERRIDE & APPLY ANYWAY
+                        </button>
+                        <span class="override-hint">Generate cover letter and messaging despite rejection</span>
                     </div>
 
                     <!-- Info Grid: Location, Compensation, Domain -->
@@ -851,6 +885,13 @@
                 document.getElementById('rejectReasons').style.display = 'none';
             }
 
+            // Override section (show only for REJECT decisions)
+            if (data.decision === 'REJECT') {
+                document.getElementById('overrideSection').style.display = 'flex';
+            } else {
+                document.getElementById('overrideSection').style.display = 'none';
+            }
+
             // Location and Compensation
             const locationType = document.getElementById('locationType');
             locationType.textContent = analysis.location_type || 'Unknown';
@@ -901,6 +942,67 @@
 
             document.getElementById('results').style.display = 'block';
             document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function overrideReject() {
+            if (!currentJobId) {
+                showError('No job analyzed.');
+                return;
+            }
+
+            const btn = document.getElementById('overrideBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Generating Cover Letter...';
+
+            try {
+                const response = await fetch('/api/override-reject', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job_id: currentJobId })
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Override failed');
+
+                // Update decision badge to show override
+                const decisionBadge = document.getElementById('decisionBadge');
+                decisionBadge.textContent = 'APPLY (Override)';
+                decisionBadge.className = 'decision-badge decision-apply';
+
+                // Hide override section
+                document.getElementById('overrideSection').style.display = 'none';
+
+                // Show cover letter section
+                document.getElementById('coverLetterSection').style.display = 'block';
+
+                // Format cover letter preview
+                const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+                const companyName = document.getElementById('companyName').textContent;
+                const greeting = companyName && companyName !== 'Unknown Company' ? `Dear ${companyName} Hiring Team,` : 'Dear Hiring Team,';
+                document.getElementById('coverLetterPreview').innerHTML =
+                    `<strong>Austin Stretz</strong>\nKansas City, MO | a.stretz@outlook.com | 913-515-8304\n${today}\n\n${greeting}\n\n${data.cover_letter}\n\nSincerely,\nAustin Stretz`;
+
+                // Show saved notice
+                if (data.cover_letter_filepath) {
+                    document.getElementById('savedNotice').style.display = 'flex';
+                    document.getElementById('savedPath').textContent = data.cover_letter_filepath;
+                }
+
+                // Reset message generator
+                document.getElementById('messagePreview').style.display = 'none';
+                document.getElementById('messageActions').style.display = 'none';
+                document.getElementById('messageSaved').style.display = 'none';
+                document.getElementById('charCount').textContent = '';
+
+                // Scroll to cover letter
+                document.getElementById('coverLetterSection').scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                showError('Override failed: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'OVERRIDE & APPLY ANYWAY';
+            }
         }
 
         async function generateMessage() {
