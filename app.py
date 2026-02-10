@@ -16,6 +16,7 @@ from database import (
 from analyzer import analyze_and_generate
 from cover_letter import save_cover_letter_docx, get_output_directory
 from message_generator import generate_follow_up_message, save_message_to_file
+from jd_saver import save_job_description_file
 
 load_dotenv()
 
@@ -52,13 +53,25 @@ def analyze():
         result = analyze_and_generate(job_description, additional_context)
 
         cover_letter_filepath = None
+        jd_filepath = None
+
+        # Always save the JD file (regardless of apply/reject)
+        try:
+            jd_filepath = save_job_description_file(
+                job_description=job_description,
+                company_name=result.get('company_name') or '',
+                job_title=result.get('job_title') or ''
+            )
+            result['jd_filepath'] = jd_filepath
+        except Exception as e:
+            print(f"Warning: Failed to save JD file: {e}")
 
         # If APPLY and cover letter was generated, auto-save to file
         if result['decision'] == 'APPLY' and result.get('cover_letter'):
             cover_letter_filepath = save_cover_letter_docx(
                 content=result['cover_letter'],
-                company_name=result.get('company_name'),
-                job_title=result.get('job_title')
+                company_name=result.get('company_name') or '',
+                job_title=result.get('job_title') or ''
             )
             result['cover_letter_filepath'] = cover_letter_filepath
 
@@ -67,7 +80,8 @@ def analyze():
             job_description=job_description,
             additional_context=additional_context,
             analysis_result=result,
-            cover_letter_filepath=cover_letter_filepath
+            cover_letter_filepath=cover_letter_filepath,
+            jd_filepath=jd_filepath
         )
 
         result['job_id'] = job_id
@@ -103,8 +117,8 @@ def override_reject():
         # Generate cover letter for this job
         cover_letter = generate_cover_letter_only(
             job_description=job['job_description'],
-            company_name=job['company_name'],
-            job_title=job['job_title'],
+            company_name=job['company_name'] or '',
+            job_title=job['job_title'] or '',
             resume_type=job['recommended_resume'] or 'Traditional PM',
             priority_level='STANDARD'
         )
@@ -112,8 +126,8 @@ def override_reject():
         # Save to file
         cover_letter_filepath = save_cover_letter_docx(
             content=cover_letter,
-            company_name=job['company_name'],
-            job_title=job['job_title']
+            company_name=job['company_name'] or '',
+            job_title=job['job_title'] or ''
         )
 
         # Update database to mark as overridden

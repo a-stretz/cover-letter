@@ -218,14 +218,108 @@
             margin-bottom: 16px;
         }
         .decision-summary.reject { border-left-color: #dc3545; }
-        .decision-summary h3 {
+        .decision-summary h3, .role-summary h3 {
             font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: #666;
             margin-bottom: 8px;
         }
-        .decision-summary p { color: #333; font-size: 0.95rem; }
+        .decision-summary p, .role-summary p { color: #333; font-size: 0.95rem; }
+
+        /* Role Summary */
+        .role-summary {
+            background: linear-gradient(135deg, #e8f4fd, #d6eaf8);
+            border-left: 4px solid #17a2b8;
+            padding: 16px 20px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 16px;
+        }
+
+        /* Bullet content styling */
+        .bullet-content {
+            color: #333;
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+        .bullet-content ul {
+            margin: 0;
+            padding-left: 20px;
+            list-style-type: disc;
+        }
+        .bullet-content li {
+            margin-bottom: 4px;
+        }
+
+        /* New Job Button at top */
+        .new-job-btn-container {
+            margin-bottom: 20px;
+            display: none;
+        }
+        .new-job-btn-container.visible {
+            display: block;
+        }
+        .btn-outline {
+            background: white;
+            color: #0066cc;
+            border: 2px solid #0066cc;
+            width: auto;
+            padding: 10px 20px;
+        }
+        .btn-outline:hover {
+            background: #e8f4fd;
+        }
+
+        /* Stop button */
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+        }
+        .btn-danger:hover:not(:disabled) {
+            box-shadow: 0 4px 12px rgba(220,53,69,0.3);
+        }
+
+        /* Expandable JD section */
+        .jd-expandable {
+            margin-top: 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .jd-header {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .jd-header:hover {
+            background: #e9ecef;
+        }
+        .jd-toggle {
+            font-size: 1.2rem;
+            transition: transform 0.2s;
+        }
+        .jd-toggle.expanded {
+            transform: rotate(180deg);
+        }
+        .jd-content {
+            display: none;
+            padding: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: white;
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .jd-content.expanded {
+            display: block;
+        }
 
         /* Info Grid */
         .info-grid {
@@ -573,6 +667,13 @@
 
         <!-- Analyze Tab -->
         <div id="analyzeTab">
+            <!-- New Job Button - only visible after analysis -->
+            <div id="newJobBtnContainer" class="new-job-btn-container">
+                <button class="btn btn-outline" onclick="resetForm()">
+                    ← ANALYZE NEW JOB
+                </button>
+            </div>
+
             <div class="card">
                 <h2>Paste Job Description</h2>
                 <div class="input-group">
@@ -583,9 +684,14 @@
                     <label for="additionalContext">Additional Context (Optional)</label>
                     <input type="text" id="additionalContext" placeholder="Company name, notes, personal connection, referral...">
                 </div>
-                <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeJob()">
-                    ANALYZE JOB
-                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeJob()" style="flex: 1;">
+                        ANALYZE JOB
+                    </button>
+                    <button class="btn btn-danger" id="stopBtn" onclick="stopAnalysis()" style="display: none; width: auto; padding: 14px 20px;">
+                        STOP
+                    </button>
+                </div>
             </div>
 
             <div id="errorMessage" class="error"></div>
@@ -606,7 +712,13 @@
                     <!-- Decision Summary -->
                     <div id="decisionSummary" class="decision-summary">
                         <h3>Decision Summary</h3>
-                        <p id="summaryText"></p>
+                        <div id="summaryText" class="bullet-content"></div>
+                    </div>
+
+                    <!-- Role Summary -->
+                    <div id="roleSummary" class="role-summary">
+                        <h3>Role Summary</h3>
+                        <div id="roleSummaryText" class="bullet-content"></div>
                     </div>
 
                     <!-- Reject Reasons (if applicable) -->
@@ -647,7 +759,7 @@
                             <span id="experienceScore" class="experience-score"></span>
                             <span id="experienceLabel" class="experience-label"></span>
                         </div>
-                        <p id="experienceSummary" class="experience-summary"></p>
+                        <div id="experienceSummary" class="experience-summary bullet-content"></div>
                     </div>
 
                     <!-- Keywords -->
@@ -730,10 +842,6 @@
                     </div>
                 </div>
 
-                <!-- New Job Button -->
-                <div style="text-align: center; margin-top: 20px;">
-                    <button class="btn btn-secondary" onclick="resetForm()">ANALYZE NEW JOB</button>
-                </div>
             </div>
         </div>
 
@@ -799,6 +907,7 @@
         let currentJobId = null;
         let currentMessage = null;
         let searchTimeout = null;
+        let abortController = null;
 
         function showTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -808,6 +917,25 @@
             document.getElementById('historyTab').style.display = tab === 'history' ? 'block' : 'none';
 
             if (tab === 'history') loadHistory();
+        }
+
+        // Helper to render bullet text (converts • or - at start of lines to HTML list)
+        function renderBullets(text) {
+            if (!text) return '';
+            // Split by newlines and look for bullet patterns
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            const bulletLines = lines.filter(l => l.startsWith('•') || l.startsWith('-') || l.startsWith('*'));
+
+            if (bulletLines.length > 0) {
+                // It has bullets, render as list
+                const items = lines.map(l => {
+                    const cleaned = l.replace(/^[•\-\*]\s*/, '');
+                    return `<li>${cleaned}</li>`;
+                }).join('');
+                return `<ul>${items}</ul>`;
+            }
+            // No bullets, just return as paragraph
+            return `<p>${text}</p>`;
         }
 
         async function analyzeJob() {
@@ -820,16 +948,24 @@
             }
 
             const btn = document.getElementById('analyzeBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            // Create abort controller for this request
+            abortController = new AbortController();
+
             btn.disabled = true;
             btn.innerHTML = '<span class="loading"></span> Analyzing...';
+            stopBtn.style.display = 'inline-block';
             hideError();
             document.getElementById('results').style.display = 'none';
+            document.getElementById('newJobBtnContainer').classList.remove('visible');
 
             try {
                 const response = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ job_description: jobDescription, additional_context: additionalContext })
+                    body: JSON.stringify({ job_description: jobDescription, additional_context: additionalContext }),
+                    signal: abortController.signal
                 });
 
                 const data = await response.json();
@@ -838,11 +974,27 @@
                 currentJobId = data.job_id;
                 displayResults(data);
 
+                // Show the new job button at top
+                document.getElementById('newJobBtnContainer').classList.add('visible');
+
             } catch (error) {
-                showError('Analysis failed: ' + error.message);
+                if (error.name === 'AbortError') {
+                    // User cancelled - just reset state
+                    console.log('Analysis cancelled by user');
+                } else {
+                    showError('Analysis failed: ' + error.message);
+                }
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = 'ANALYZE JOB';
+                stopBtn.style.display = 'none';
+                abortController = null;
+            }
+        }
+
+        function stopAnalysis() {
+            if (abortController) {
+                abortController.abort();
             }
         }
 
@@ -867,14 +1019,23 @@
                 priorityBadge.style.display = 'none';
             }
 
-            // Company and title
-            document.getElementById('companyName').textContent = data.company_name || 'Unknown Company';
-            document.getElementById('jobTitle').textContent = data.job_title || 'Unknown Title';
+            // Company and title - leave blank if unknown, don't show placeholder text
+            document.getElementById('companyName').textContent = data.company_name || '';
+            document.getElementById('jobTitle').textContent = data.job_title || '';
 
-            // Decision summary
+            // Decision summary (render as bullets)
             const summaryDiv = document.getElementById('decisionSummary');
             summaryDiv.className = 'decision-summary' + (data.decision === 'REJECT' ? ' reject' : '');
-            document.getElementById('summaryText').textContent = data.decision_summary || '';
+            document.getElementById('summaryText').innerHTML = renderBullets(data.decision_summary || '');
+
+            // Role summary (render as bullets)
+            const roleSummary = analysis.role_summary || '';
+            if (roleSummary) {
+                document.getElementById('roleSummary').style.display = 'block';
+                document.getElementById('roleSummaryText').innerHTML = renderBullets(roleSummary);
+            } else {
+                document.getElementById('roleSummary').style.display = 'none';
+            }
 
             // Reject reasons
             const rejectReasons = analysis.reject_reasons || [];
@@ -906,10 +1067,10 @@
             // Company domain
             document.getElementById('companyDomain').textContent = analysis.company_domain || 'Not specified';
 
-            // Experience match
+            // Experience match (render summary as bullets)
             document.getElementById('experienceScore').textContent = experience.score ? `${experience.score}/10` : '';
             document.getElementById('experienceLabel').textContent = experience.label || '';
-            document.getElementById('experienceSummary').textContent = experience.summary || '';
+            document.getElementById('experienceSummary').innerHTML = renderBullets(experience.summary || '');
 
             // Keywords
             const keywords = (analysis.keywords_detected || '').split(',').map(k => k.trim()).filter(k => k);
@@ -978,7 +1139,7 @@
                 // Format cover letter preview
                 const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
                 const companyName = document.getElementById('companyName').textContent;
-                const greeting = companyName && companyName !== 'Unknown Company' ? `Dear ${companyName} Hiring Team,` : 'Dear Hiring Team,';
+                const greeting = companyName ? `Dear ${companyName} Hiring Team,` : 'Dear Hiring Team,';
                 document.getElementById('coverLetterPreview').innerHTML =
                     `<strong>Austin Stretz</strong>\nKansas City, MO | a.stretz@outlook.com | 913-515-8304\n${today}\n\n${greeting}\n\n${data.cover_letter}\n\nSincerely,\nAustin Stretz`;
 
@@ -1170,7 +1331,11 @@
                 const job = await response.json();
                 if (!response.ok) throw new Error(job.error);
 
-                document.getElementById('modalTitle').textContent = `${job.company_name || 'Unknown'} - ${job.job_title || 'Unknown'}`;
+                // Build modal title - handle empty company/title gracefully
+                const modalParts = [];
+                if (job.company_name) modalParts.push(job.company_name);
+                if (job.job_title) modalParts.push(job.job_title);
+                document.getElementById('modalTitle').textContent = modalParts.length > 0 ? modalParts.join(' - ') : 'Job Details';
 
                 let content = `
                     <div class="decision-row" style="margin-bottom: 16px;">
@@ -1181,23 +1346,30 @@
 
                     <div class="decision-summary ${job.decision === 'REJECT' ? 'reject' : ''}" style="margin-bottom: 16px;">
                         <h3>Decision Summary</h3>
-                        <p>${job.decision_summary || 'No summary available'}</p>
+                        <div class="bullet-content">${renderBullets(job.decision_summary || 'No summary available')}</div>
                     </div>
+
+                    ${job.role_summary ? `
+                    <div class="role-summary" style="margin-bottom: 16px;">
+                        <h3>Role Summary</h3>
+                        <div class="bullet-content">${renderBullets(job.role_summary)}</div>
+                    </div>
+                    ` : ''}
 
                     <div class="info-grid" style="margin-bottom: 16px;">
                         <div class="info-card">
                             <h4>Location</h4>
-                            <p>${job.location_type || 'Unknown'} - ${job.location_details || ''}</p>
+                            <p>${job.location_type || ''} ${job.location_details ? '- ' + job.location_details : ''}</p>
                         </div>
                         <div class="info-card">
                             <h4>Compensation</h4>
-                            <p>${job.compensation_range || 'Not specified'} (${job.compensation_fit || 'Unknown'})</p>
+                            <p>${job.compensation_range || 'Not specified'} ${job.compensation_fit ? '(' + job.compensation_fit + ')' : ''}</p>
                         </div>
                     </div>
 
                     <div class="info-card" style="margin-bottom: 16px;">
                         <h4>Company Domain</h4>
-                        <p>${job.company_domain || 'Not specified'}</p>
+                        <p>${job.company_domain || ''}</p>
                     </div>
 
                     <div class="experience-match" style="margin-bottom: 16px;">
@@ -1205,7 +1377,7 @@
                             <span class="experience-score">${job.experience_score || '?'}/10</span>
                             <span class="experience-label">${job.experience_label || ''}</span>
                         </div>
-                        <p class="experience-summary">${job.experience_summary || 'No summary available'}</p>
+                        <div class="experience-summary bullet-content">${renderBullets(job.experience_summary || 'No summary available')}</div>
                     </div>
 
                     <div style="margin-bottom: 16px;">
@@ -1225,6 +1397,19 @@
                     `;
                 }
 
+                // Expandable JD section
+                if (job.job_description) {
+                    content += `
+                        <div class="jd-expandable">
+                            <div class="jd-header" onclick="toggleJdContent()">
+                                <span>View Job Description</span>
+                                <span id="jdToggleIcon" class="jd-toggle">▼</span>
+                            </div>
+                            <div id="jdContent" class="jd-content">${escapeHtml(job.job_description)}</div>
+                        </div>
+                    `;
+                }
+
                 document.getElementById('modalContent').innerHTML = content;
                 document.getElementById('jobModal').classList.add('active');
 
@@ -1239,6 +1424,19 @@
 
         function closeModalOutside(event) {
             if (event.target.id === 'jobModal') closeModal();
+        }
+
+        function toggleJdContent() {
+            const content = document.getElementById('jdContent');
+            const icon = document.getElementById('jdToggleIcon');
+            content.classList.toggle('expanded');
+            icon.classList.toggle('expanded');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         function showError(msg) {

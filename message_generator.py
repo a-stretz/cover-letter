@@ -72,6 +72,8 @@ Company: {company_name}
 Job Title: {job_title}
 Job Description Summary: {job_summary}
 
+NOTE: If company name or job title is blank/empty, do not reference them directly. Write the message without specific company name mentions if unavailable.
+
 MESSAGE SPECIFICATIONS:
 Type: {message_type_name}
 {specs}
@@ -159,8 +161,8 @@ Count carefully. Be concise. Every word must earn its place.
     prompt = MESSAGE_PROMPT.format(
         message_type=message_type,
         profile=get_profile_summary(),
-        company_name=company_name or "Unknown Company",
-        job_title=job_title or "Product Role",
+        company_name=company_name or "",
+        job_title=job_title or "",
         job_summary=job_summary,
         message_type_name=specs['name'],
         specs=specs_text,
@@ -253,9 +255,13 @@ def save_message_to_file(message_text: str, subject: str, company_name: str, mes
     if company_name:
         clean_company = re.sub(r'[^\w\s-]', '', company_name).strip()
     else:
-        clean_company = "Unknown Company"
+        clean_company = ""
 
-    filename = f"Austin Stretz - {clean_company} {suffix}.txt"
+    # Build filename - handle empty company name gracefully
+    if clean_company:
+        filename = f"Austin Stretz - {clean_company} {suffix}.txt"
+    else:
+        filename = f"Austin Stretz - {suffix}.txt"
     filepath = os.path.join(output_dir, filename)
 
     # Handle duplicates

@@ -52,9 +52,19 @@ ANALYSIS INSTRUCTIONS:
 
 1. DECISION: Determine if Austin should APPLY or REJECT based on criteria above.
 
-2. DECISION SUMMARY: Write 2-3 sentences explaining the decision. Quick at-a-glance: Should he apply? Why/why not?
+2. DECISION SUMMARY: Provide 2-3 bullet points (not a paragraph):
+   - First bullet: Clear apply/reject rationale in one strong, direct sentence
+   - Second bullet: Primary alignment or misalignment factor
+   - Third bullet (if APPLY): What makes this a particularly good or just adequate fit
 
-3. EXPERIENCE MATCH SCORING (use these 4 criteria):
+3. ROLE SUMMARY: Synthesize what this role actually IS in 2-4 bullet points:
+   - What is the core function of this role?
+   - What team/department does it sit in? Who does it report to?
+   - What are they actually building or managing?
+   - What's the day-to-day focus?
+   This helps quickly understand the role without re-reading the full JD.
+
+4. EXPERIENCE MATCH SCORING (use these 4 criteria):
    - Responsibility Alignment: How Austin's past responsibilities match their needs
    - Domain Experience: Relevant domain/industry expertise
    - Technical Skills: Which of Austin's technical skills match
@@ -67,21 +77,31 @@ ANALYSIS INSTRUCTIONS:
    - 3-4: Weak fit - Limited overlap, significant gaps
    - 1-2: Poor fit - Minimal relevant experience
 
-   Write a single cohesive paragraph (4-6 sentences) incorporating all 4 criteria naturally.
-   Be specific about which of Austin's projects/skills match. Mention gaps briefly but honestly.
+   Provide as bullet points, not a paragraph. Be specific about which projects/skills match.
 
-4. LOCATION: Classify as Remote/Hybrid/Onsite/KC Metro. Note if it fits Austin's preferences.
+5. LOCATION: Classify as Remote/Hybrid/Onsite/KC Metro. One bullet point on location fit.
 
-5. COMPENSATION: Detect salary range if mentioned. Classify as Below Range/In Range/Above Range/Unknown.
+6. COMPENSATION: Detect salary range if mentioned.
+   IMPORTANT LOGIC: Austin's minimum is $100,000. A salary range is "In Range" if the MAXIMUM value >= $100,000.
+   Examples:
+   - $90k-$120k → IN RANGE (max $120k >= $100k)
+   - $80k-$100k → IN RANGE (max $100k >= $100k)
+   - $70k-$90k → BELOW RANGE (max $90k < $100k)
+   - $120k-$160k → IN RANGE
+   - $150k+ → IN RANGE
+   - Not mentioned → UNKNOWN
+   Output format: "[detected range] ([fit classification])" e.g., "$90k-$120k (In Range)"
 
-6. COMPANY DOMAIN: One sentence describing the company's industry/space.
+7. COMPANY DOMAIN: One bullet point describing the company's industry/space.
 
-7. KEYWORDS: List 5-8 key technical/domain keywords from the job posting.
+8. KEYWORDS: List 5-8 key technical/domain keywords from the job posting.
 
-8. RESUME SELECTION: Choose Edge AI, AI PM, or Traditional PM based on keyword analysis.
+9. RESUME SELECTION: Choose Edge AI, AI PM, or Traditional PM based on keyword analysis.
 
-9. IF DECISION IS APPLY: Generate a cover letter following rules below.
-   IF DECISION IS REJECT: Set cover_letter to null.
+10. REJECT REASONS: If REJECT, provide as bullet points.
+
+11. IF DECISION IS APPLY: Generate a cover letter following rules below.
+    IF DECISION IS REJECT: Set cover_letter to null.
 
 ---
 
@@ -219,25 +239,26 @@ SAMPLE COVER LETTERS FOR VOICE REFERENCE:
 OUTPUT FORMAT - Respond with valid JSON only (no markdown):
 {{
   "decision": "APPLY" or "REJECT",
-  "decision_summary": "2-3 sentence summary of why apply/reject",
-  "company_name": "detected company name or null",
-  "job_title": "detected job title or null",
+  "decision_summary": "2-3 bullet points as a single string with bullet markers (• First point\\n• Second point\\n• Third point)",
+  "company_name": "detected company name or null if not found",
+  "job_title": "detected job title or null if not found",
   "recommended_resume": "Edge AI" or "AI PM" or "Traditional PM",
   "priority_level": "PRIORITY" or "STANDARD" or "REJECT",
   "analysis": {{
+    "role_summary": "2-4 bullet points as a single string (• Core function\\n• Team/reporting\\n• What they build\\n• Day-to-day focus)",
     "location_type": "Remote" or "Hybrid" or "Onsite" or "KC Metro",
-    "location_details": "brief note on location fit",
+    "location_details": "brief bullet on location fit",
     "compensation_range": "detected range or 'Not specified'",
     "compensation_fit": "Below Range" or "In Range" or "Above Range" or "Unknown",
-    "company_domain": "One sentence about company's industry/space",
+    "company_domain": "One bullet point about company's industry/space",
     "experience_match": {{
       "score": 1-10,
       "label": "Exceptional Fit" or "Strong Fit" or "Moderate Fit" or "Weak Fit" or "Poor Fit",
-      "summary": "4-6 sentence paragraph incorporating all criteria",
-      "responsibility_alignment": "brief note",
-      "domain_experience": "brief note",
-      "technical_skills": "brief note on matching skills",
-      "requirements_fit": "brief note"
+      "summary": "3-5 bullet points as a single string covering all 4 criteria",
+      "responsibility_alignment": "brief bullet",
+      "domain_experience": "brief bullet",
+      "technical_skills": "brief bullet on matching skills",
+      "requirements_fit": "brief bullet"
     }},
     "keywords_detected": "comma-separated list of 5-8 keywords",
     "reject_reasons": ["reason1", "reason2"] or [],
@@ -560,8 +581,8 @@ def generate_cover_letter_only(
     prompt = COVER_LETTER_ONLY_PROMPT.format(
         profile=get_profile_summary(),
         job_description=job_description,
-        company_name=company_name or "Unknown Company",
-        job_title=job_title or "Product Role",
+        company_name=company_name or "",
+        job_title=job_title or "",
         resume_type=resume_type,
         sample_bold=SAMPLE_COVER_LETTERS["BOLD"],
         sample_conviva=SAMPLE_COVER_LETTERS["Conviva"],

@@ -75,6 +75,12 @@ def init_db():
             -- Follow-up messages
             messages_json TEXT,
 
+            -- Role summary
+            role_summary TEXT,
+
+            -- JD file path
+            jd_filepath TEXT,
+
             -- Tracking
             status TEXT DEFAULT 'analyzed' CHECK(status IN ('analyzed', 'applied', 'interview_scheduled', 'interview_completed', 'rejected', 'offer')),
             status_updated_at TIMESTAMP,
@@ -126,6 +132,8 @@ def init_db():
         ("keywords_detected", "TEXT"),
         ("cover_letter_generated", "INTEGER DEFAULT 0"),
         ("messages_json", "TEXT"),
+        ("role_summary", "TEXT"),
+        ("jd_filepath", "TEXT"),
     ]
 
     for col_name, col_type in new_columns:
@@ -139,7 +147,7 @@ def init_db():
     current_app.teardown_appcontext(close_db)
 
 
-def save_job_analysis(job_description, additional_context, analysis_result, cover_letter_filepath=None):
+def save_job_analysis(job_description, additional_context, analysis_result, cover_letter_filepath=None, jd_filepath=None):
     """Save job analysis to database and return the job ID"""
     db = get_db()
 
@@ -173,8 +181,10 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
             priority_reasons_json,
             resume_rationale,
             cover_letter_filepath,
-            cover_letter_generated
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            cover_letter_generated,
+            role_summary,
+            jd_filepath
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (
             job_description,
             additional_context,
@@ -201,7 +211,9 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
             json.dumps(analysis.get('priority_reasons', [])),
             analysis.get('resume_rationale'),
             cover_letter_filepath,
-            1 if cover_letter_filepath else 0
+            1 if cover_letter_filepath else 0,
+            analysis.get('role_summary'),
+            jd_filepath
         )
     )
 
