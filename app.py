@@ -17,6 +17,7 @@ from analyzer import analyze_and_generate
 from cover_letter import save_cover_letter_docx, get_output_directory
 from message_generator import generate_follow_up_message, save_message_to_file
 from jd_saver import save_job_description_file
+from resume_generator import generate_resume
 
 load_dotenv()
 
@@ -49,11 +50,14 @@ def analyze():
     additional_context = data.get('additional_context', '')
 
     try:
-        # Combined analysis + cover letter generation (single API call)
+        # Combined analysis + cover letter + resume customization (single API call)
         result = analyze_and_generate(job_description, additional_context)
 
         cover_letter_filepath = None
         jd_filepath = None
+        resume_filepath = None
+        resume_title = None
+        resume_summary = None
 
         # Always save the JD file (regardless of apply/reject)
         try:
@@ -66,8 +70,9 @@ def analyze():
         except Exception as e:
             print(f"Warning: Failed to save JD file: {e}")
 
-        # If APPLY and cover letter was generated, auto-save to file
+        # If APPLY and cover letter was generated, auto-save cover letter and resume
         if result['decision'] == 'APPLY' and result.get('cover_letter'):
+            # Save cover letter
             cover_letter_filepath = save_cover_letter_docx(
                 content=result['cover_letter'],
                 company_name=result.get('company_name') or '',
@@ -75,13 +80,33 @@ def analyze():
             )
             result['cover_letter_filepath'] = cover_letter_filepath
 
+            # Generate and save tailored resume
+            resume_customization = result.get('resume_customization')
+            if resume_customization:
+                try:
+                    resume_filepath = generate_resume(
+                        customization=resume_customization,
+                        company_name=result.get('company_name') or '',
+                        job_title=result.get('job_title') or ''
+                    )
+                    result['resume_filepath'] = resume_filepath
+                    resume_title = resume_customization.get('recommended_title')
+                    resume_summary = resume_customization.get('summary')
+                except Exception as e:
+                    print(f"Warning: Failed to generate resume: {e}")
+                    import traceback
+                    traceback.print_exc()
+
         # Save to database
         job_id = save_job_analysis(
             job_description=job_description,
             additional_context=additional_context,
             analysis_result=result,
             cover_letter_filepath=cover_letter_filepath,
-            jd_filepath=jd_filepath
+            jd_filepath=jd_filepath,
+            resume_filepath=resume_filepath,
+            resume_title=resume_title,
+            resume_summary=resume_summary
         )
 
         result['job_id'] = job_id

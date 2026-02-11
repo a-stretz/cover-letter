@@ -236,6 +236,48 @@ SAMPLE COVER LETTERS FOR VOICE REFERENCE:
 
 ---
 
+RESUME CUSTOMIZATION INSTRUCTIONS (only if APPLY):
+
+Based on your analysis of this job description, provide resume customization recommendations. Austin's master resume is a two-page document focused on AI Product Management with edge-AI computer vision experience. You are adjusting emphasis, wording, and priority — NOT inventing new experience.
+
+TITLE OPTIONS (select one):
+- AI Product Manager
+- Product Manager
+- Technical Product Manager
+- Product Owner
+- AI Product Owner
+- Technical Product Owner
+- Senior Product Manager
+- Senior AI Product Manager
+
+COMPETENCY POOL (select 8, order by relevance):
+- Product Strategy, Roadmapping & Ownership
+- User Research, Practitioner Interviews & Discovery
+- Cross-Functional & Stakeholder Alignment
+- Requirements Definition & Acceptance Criteria
+- Applied AI, Computer Vision & ML Products
+- UX Flows, Journey Mapping & Experience Design
+- Product Quality, Validation & Model Evaluation
+- Multi-Domain Product Delivery (B2B, B2C, Field)
+- Technical Requirements & Systems Architecture
+- Data Pipeline & ML Workflow Management
+- Vendor Management & External Partner Coordination
+- Sprint Planning, Backlog Ownership & Agile Delivery
+- GTM Strategy & Revenue Operations
+- Regulatory, Compliance & Enterprise Systems
+- Real-Time Systems & Edge Computing
+- Documentation, Knowledge Management & Enablement
+
+NEOSAVANT BULLETS - Reword to emphasize JD-relevant aspects. Facts stay the same, framing shifts.
+
+SKILLS/TOOLS SECTION - Select from master technology library based on role type:
+- Traditional PM: Emphasize Jira, Monday.com, Figma, Lucidchart, GitHub/GitLab, Excel/Google Sheets, HubSpot
+- Technical/Platform PM: Emphasize JSON, Protocol Buffers, GitHub/GitLab, CLI tooling, AWS S3
+- AI/ML Product: Emphasize NVIDIA Jetson, DeepStream, BlazePose, YOLO, LSTM, WebRTC, Protocol Buffers, Python
+- Integration/Systems PM: Emphasize JSON, Protocol Buffers, AWS S3, GitHub/GitLab, CLI tooling
+
+---
+
 OUTPUT FORMAT - Respond with valid JSON only (no markdown):
 {{
   "decision": "APPLY" or "REJECT",
@@ -265,7 +307,34 @@ OUTPUT FORMAT - Respond with valid JSON only (no markdown):
     "priority_reasons": ["reason1", "reason2"] or [],
     "resume_rationale": "Why this resume variant was chosen"
   }},
-  "cover_letter": "Full cover letter body text (exactly 3 paragraphs) or null if REJECT"
+  "cover_letter": "Full cover letter body text (exactly 3 paragraphs) or null if REJECT",
+  "resume_customization": {{
+    "recommended_title": "one of the normalized title options",
+    "summary": "3-4 sentence paragraph rewritten to emphasize what matters most for this JD. Factually accurate. Confident, direct tone.",
+    "competencies": ["8 competencies ordered by JD relevance"],
+    "neosavant": {{
+      "subheaders": ["Product Management & Execution", "Product Research, Validation & Domain Translation", "Key Product Systems & Platform Capabilities", "Quality, Data & Operations"],
+      "pm_execution_bullets": ["bullet 1", "bullet 2", "bullet 3"],
+      "research_validation_bullets": ["bullet 1", "bullet 2", "bullet 3"],
+      "key_systems_bullets": [
+        "Video-Based Performance Review System (2D/3D/XR): description reworded for JD emphasis...",
+        "Real-Time Feedback & Coaching System: description reworded for JD emphasis...",
+        "Model Behavior & Interpretation Framework: description reworded for JD emphasis...",
+        "Onsite Capture & Operations Platform: description reworded for JD emphasis..."
+      ],
+      "quality_data_bullets": ["bullet 1", "bullet 2", "bullet 3", "bullet 4"]
+    }},
+    "consulting_1872_bullets": ["6 bullets with domain-relevant edits based on JD keywords"],
+    "skills_tools": {{
+      "role_type": "Traditional Product Management" or "Technical / Platform PM" or "AI / ML Product" or "Integration / Systems PM",
+      "section_1_label": "highest-priority tech category label",
+      "section_1_items": "comma-separated list of tools/technologies",
+      "section_2_label": "second-priority tech category label",
+      "section_2_items": "comma-separated list of tools/technologies",
+      "section_3_label": "third-priority tech category label (optional)",
+      "section_3_items": "comma-separated list of tools/technologies (optional)"
+    }}
+  }}
 }}"""
 
 

@@ -81,6 +81,12 @@ def init_db():
             -- JD file path
             jd_filepath TEXT,
 
+            -- Resume customization
+            resume_filepath TEXT,
+            resume_title_used TEXT,
+            resume_summary_text TEXT,
+            resume_generated INTEGER DEFAULT 0,
+
             -- Tracking
             status TEXT DEFAULT 'analyzed' CHECK(status IN ('analyzed', 'applied', 'interview_scheduled', 'interview_completed', 'rejected', 'offer')),
             status_updated_at TIMESTAMP,
@@ -134,6 +140,10 @@ def init_db():
         ("messages_json", "TEXT"),
         ("role_summary", "TEXT"),
         ("jd_filepath", "TEXT"),
+        ("resume_filepath", "TEXT"),
+        ("resume_title_used", "TEXT"),
+        ("resume_summary_text", "TEXT"),
+        ("resume_generated", "INTEGER DEFAULT 0"),
     ]
 
     for col_name, col_type in new_columns:
@@ -147,7 +157,7 @@ def init_db():
     current_app.teardown_appcontext(close_db)
 
 
-def save_job_analysis(job_description, additional_context, analysis_result, cover_letter_filepath=None, jd_filepath=None):
+def save_job_analysis(job_description, additional_context, analysis_result, cover_letter_filepath=None, jd_filepath=None, resume_filepath=None, resume_title=None, resume_summary=None):
     """Save job analysis to database and return the job ID"""
     db = get_db()
 
@@ -183,8 +193,12 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
             cover_letter_filepath,
             cover_letter_generated,
             role_summary,
-            jd_filepath
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            jd_filepath,
+            resume_filepath,
+            resume_title_used,
+            resume_summary_text,
+            resume_generated
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (
             job_description,
             additional_context,
@@ -213,7 +227,11 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
             cover_letter_filepath,
             1 if cover_letter_filepath else 0,
             analysis.get('role_summary'),
-            jd_filepath
+            jd_filepath,
+            resume_filepath,
+            resume_title,
+            resume_summary,
+            1 if resume_filepath else 0
         )
     )
 

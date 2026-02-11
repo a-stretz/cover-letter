@@ -475,6 +475,61 @@
             overflow-y: auto;
         }
 
+        /* Resume Section */
+        .resume-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .resume-header h3 { font-size: 1rem; }
+        .resume-preview {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .resume-item {
+            margin-bottom: 12px;
+        }
+        .resume-item:last-child {
+            margin-bottom: 0;
+        }
+        .resume-label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .resume-value {
+            color: #0066cc;
+            font-weight: 500;
+        }
+        .resume-summary-text {
+            font-size: 0.9rem;
+            color: #444;
+            font-style: italic;
+            line-height: 1.6;
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+        .competencies-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .competency-tag {
+            background: #e8f4fd;
+            color: #0066cc;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
         /* Follow-Up Message Generator */
         .message-generator {
             background: #f8f9fa;
@@ -833,6 +888,36 @@
                     </div>
                 </div>
 
+                <!-- Tailored Resume Section (only for APPLY) -->
+                <div id="resumeSection" class="card" style="display:none;">
+                    <div class="resume-header">
+                        <h3>Tailored Resume</h3>
+                        <div id="resumeSavedNotice" class="saved-notice" style="display:none;">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg>
+                            <span>Saved: <span id="resumeSavedPath"></span></span>
+                        </div>
+                    </div>
+
+                    <div class="resume-preview">
+                        <div class="resume-item">
+                            <span class="resume-label">Title Used:</span>
+                            <span id="resumeTitle" class="resume-value"></span>
+                        </div>
+                        <div class="resume-item">
+                            <span class="resume-label">Summary:</span>
+                            <div id="resumeSummary" class="resume-summary-text"></div>
+                        </div>
+                        <div class="resume-item">
+                            <span class="resume-label">Top Competencies:</span>
+                            <div id="resumeCompetencies" class="competencies-list"></div>
+                        </div>
+                        <div class="resume-item">
+                            <span class="resume-label">Skills Focus:</span>
+                            <span id="resumeSkillsFocus" class="resume-value"></span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Analyze New Job Button - at bottom after all results -->
                 <div id="newJobBtnContainer" class="new-job-btn-bottom">
                     <button class="btn btn-new-job" onclick="resetForm()">
@@ -1092,6 +1177,37 @@
                 document.getElementById('charCount').textContent = '';
             } else {
                 document.getElementById('coverLetterSection').style.display = 'none';
+            }
+
+            // Resume section
+            if (data.decision === 'APPLY' && data.resume_customization) {
+                document.getElementById('resumeSection').style.display = 'block';
+                document.getElementById('resumeTitle').textContent = data.resume_customization.recommended_title || '';
+                document.getElementById('resumeSummary').textContent = data.resume_customization.summary || '';
+
+                // Populate competencies as tags
+                const competencies = data.resume_customization.competencies || [];
+                document.getElementById('resumeCompetencies').innerHTML = competencies
+                    .map(c => `<span class="competency-tag">${c}</span>`).join('');
+
+                // Show skills focus (combine languages/frameworks/tools)
+                const skills = data.resume_customization.skills_tools || {};
+                const skillsFocus = [
+                    ...(skills.languages || []),
+                    ...(skills.frameworks || []),
+                    ...(skills.tools || [])
+                ].slice(0, 8).join(', ');
+                document.getElementById('resumeSkillsFocus').textContent = skillsFocus || 'Standard skills set';
+
+                // Show saved notice
+                if (data.resume_filepath) {
+                    document.getElementById('resumeSavedNotice').style.display = 'flex';
+                    document.getElementById('resumeSavedPath').textContent = data.resume_filepath;
+                } else {
+                    document.getElementById('resumeSavedNotice').style.display = 'none';
+                }
+            } else {
+                document.getElementById('resumeSection').style.display = 'none';
             }
 
             document.getElementById('results').style.display = 'block';
