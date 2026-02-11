@@ -41,8 +41,13 @@ def init_db():
             -- Decision outputs
             decision TEXT NOT NULL CHECK(decision IN ('APPLY', 'REJECT')),
             decision_summary TEXT,
-            recommended_resume TEXT CHECK(recommended_resume IN ('Edge AI', 'AI PM', 'Traditional PM')),
             priority_level TEXT CHECK(priority_level IN ('PRIORITY', 'STANDARD', 'REJECT')),
+
+            -- Resume selection (selects from 3 pre-built variants, does NOT generate)
+            selected_resume TEXT CHECK(selected_resume IN ('AI Product Manager', 'Platform Product Manager', 'B2B SaaS Product Manager')),
+            resume_confidence TEXT CHECK(resume_confidence IN ('Low', 'Medium', 'High')),
+            resume_reasoning TEXT,
+            resume_key_signals TEXT,
 
             -- Location & Compensation
             location_type TEXT,
@@ -81,12 +86,6 @@ def init_db():
             -- JD file path
             jd_filepath TEXT,
 
-            -- Resume customization
-            resume_filepath TEXT,
-            resume_title_used TEXT,
-            resume_summary_text TEXT,
-            resume_generated INTEGER DEFAULT 0,
-
             -- Tracking
             status TEXT DEFAULT 'analyzed' CHECK(status IN ('analyzed', 'applied', 'interview_scheduled', 'interview_completed', 'rejected', 'offer')),
             status_updated_at TIMESTAMP,
@@ -104,7 +103,7 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs_analyzed(status)",
         "CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs_analyzed(company_name)",
         "CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs_analyzed(created_at DESC)",
-        "CREATE INDEX IF NOT EXISTS idx_jobs_resume ON jobs_analyzed(recommended_resume)",
+        "CREATE INDEX IF NOT EXISTS idx_jobs_resume ON jobs_analyzed(selected_resume)",
         "CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs_analyzed(location_type)",
         "CREATE INDEX IF NOT EXISTS idx_jobs_comp_fit ON jobs_analyzed(compensation_fit)",
     ]
@@ -140,10 +139,10 @@ def init_db():
         ("messages_json", "TEXT"),
         ("role_summary", "TEXT"),
         ("jd_filepath", "TEXT"),
-        ("resume_filepath", "TEXT"),
-        ("resume_title_used", "TEXT"),
-        ("resume_summary_text", "TEXT"),
-        ("resume_generated", "INTEGER DEFAULT 0"),
+        ("selected_resume", "TEXT"),
+        ("resume_confidence", "TEXT"),
+        ("resume_reasoning", "TEXT"),
+        ("resume_key_signals", "TEXT"),
     ]
 
     for col_name, col_type in new_columns:
@@ -157,12 +156,17 @@ def init_db():
     current_app.teardown_appcontext(close_db)
 
 
-def save_job_analysis(job_description, additional_context, analysis_result, cover_letter_filepath=None, jd_filepath=None, resume_filepath=None, resume_title=None, resume_summary=None):
+def save_job_analysis(job_description, additional_context, analysis_result, cover_letter_filepath=None, jd_filepath=None, selected_resume=None, resume_confidence=None, resume_reasoning=None):
     """Save job analysis to database and return the job ID"""
     db = get_db()
 
     analysis = analysis_result.get('analysis', {})
     experience = analysis.get('experience_match', {})
+    resume_selection = analysis_result.get('resume_selection', {})
+
+    # Get key signals as JSON string
+    key_signals = resume_selection.get('key_signals', [])
+    key_signals_json = json.dumps(key_signals) if key_signals else None
 
     cursor = db.execute(
         '''INSERT INTO jobs_analyzed (
@@ -172,8 +176,11 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
             job_title,
             decision,
             decision_summary,
-            recommended_resume,
             priority_level,
+            selected_resume,
+            resume_confidence,
+            resume_reasoning,
+            resume_key_signals,
             location_type,
             location_details,
             compensation_range,
@@ -189,16 +196,11 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
             keywords_detected,
             reject_reasons_json,
             priority_reasons_json,
-            resume_rationale,
             cover_letter_filepath,
             cover_letter_generated,
             role_summary,
-            jd_filepath,
-            resume_filepath,
-            resume_title_used,
-            resume_summary_text,
-            resume_generated
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            jd_filepath
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (
             job_description,
             additional_context,
@@ -206,8 +208,11 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
             analysis_result.get('job_title'),
             analysis_result.get('decision'),
             analysis_result.get('decision_summary'),
-            analysis_result.get('recommended_resume'),
             analysis_result.get('priority_level'),
+            selected_resume or resume_selection.get('selected_resume'),
+            resume_confidence or resume_selection.get('confidence'),
+            resume_reasoning or resume_selection.get('reasoning'),
+            key_signals_json,
             analysis.get('location_type'),
             analysis.get('location_details'),
             analysis.get('compensation_range'),
@@ -223,15 +228,10 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
             analysis.get('keywords_detected'),
             json.dumps(analysis.get('reject_reasons', [])),
             json.dumps(analysis.get('priority_reasons', [])),
-            analysis.get('resume_rationale'),
             cover_letter_filepath,
             1 if cover_letter_filepath else 0,
             analysis.get('role_summary'),
-            jd_filepath,
-            resume_filepath,
-            resume_title,
-            resume_summary,
-            1 if resume_filepath else 0
+            jd_filepath
         )
     )
 
@@ -281,8 +281,8 @@ def get_jobs_history(filters=None, search=None, limit=100, offset=0):
     """Get job history with optional filters and search"""
     db = get_db()
 
-    query = '''SELECT id, company_name, job_title, decision, recommended_resume,
-                      priority_level, location_type, compensation_fit, status, created_at
+    query = '''SELECT id, company_name, job_title, decision, selected_resume,
+                      resume_confidence, priority_level, location_type, compensation_fit, status, created_at
                FROM jobs_analyzed WHERE 1=1'''
     params = []
 
@@ -291,7 +291,7 @@ def get_jobs_history(filters=None, search=None, limit=100, offset=0):
             query += ' AND decision = ?'
             params.append(filters['decision'])
         if filters.get('resume'):
-            query += ' AND recommended_resume = ?'
+            query += ' AND selected_resume = ?'
             params.append(filters['resume'])
         if filters.get('priority'):
             if filters['priority'] == 'Yes':
