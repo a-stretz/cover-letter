@@ -102,8 +102,11 @@ PROFILE = {
             "company": "1872 Consulting, LLC",
             "dates": "Jun 2015 – Dec 2024",
             "highlights": [
-                "Led modernization of legacy AS400 platform → API-driven system",
+                "Led modernization of enterprise HRIS platform (B2B SaaS): legacy AS400 → API-driven system",
+                "Designed multi-tenant compliance systems for Fortune 100 clients",
+                "Built API-driven integrations and automation workflows across enterprise platforms",
                 "Drove 126% revenue growth, closed $1.1M Fortune 100 contract",
+                "Product strategy for scalable SaaS platform serving recruitment industry",
                 "Defined product vision, user flows, MVP strategy for HRIS compliance platforms",
                 "Built Account Manager training program, KPIs, HubSpot dashboards"
             ]
@@ -148,7 +151,9 @@ PROFILE = {
         "AI Product Development: 0→1 product creation, AI interpretability, prompt engineering",
         "Biomechanics: Movement semantics, coaching feedback systems, metric design",
         "Edge AI: Real-time processing, on-device inference, multi-camera systems",
-        "Computer Vision: 3D reconstruction, pose estimation, video analytics"
+        "Computer Vision: 3D reconstruction, pose estimation, video analytics",
+        "B2B SaaS: Enterprise product management, platform development, scalable systems",
+        "Product Platforms: Multi-tenant architecture, API-driven products, integration workflows"
     ],
 
     "certifications": [
@@ -196,7 +201,11 @@ PROFILE = {
         "AI/ML Product Manager",
         "Technical Product Manager",
         "Product Owner (AI/ML focus)",
-        "Senior Product Manager (growth-stage startups preferred)"
+        "Senior Product Manager (growth-stage startups preferred)",
+        "Platform Product Manager",
+        "B2B SaaS Product Manager",
+        "Enterprise Product Manager",
+        "Integration/API Product Manager"
     ]
 }
 
@@ -206,8 +215,14 @@ REJECT_CRITERIA = """
 Auto-Reject if ANY of these are true:
 1. Location: Onsite required AND not in KC metro area (>30 miles from Kansas City)
    KC Metro includes: Kansas City MO/KS, Overland Park, Shawnee, Lenexa, Olathe, Independence, Blue Springs, Belton, Liberty, De Soto
-2. Compensation: Stated salary < $100k for FTE roles (Contract $40+/hr is acceptable)
-   Note: Remote roles > $160k are concerning (likely too competitive)
+2. Compensation: ONLY reject if the MAXIMUM of the stated salary range < $100k
+   CRITICAL: If a range like "$85k-$120k" is posted, this is IN RANGE because max ($120k) >= $100k
+   Examples:
+   - $85k-$120k → IN RANGE (max is $120k) - DO NOT REJECT
+   - $90k-$95k → BELOW RANGE (max is $95k) - REJECT
+   - $100k-$130k → IN RANGE - DO NOT REJECT
+   - Salary not listed → DO NOT REJECT (Unknown)
+   Contract: $40+/hr is acceptable
 3. Experience: Explicitly requires "10+ years" experience
 4. Technical Requirements: Requires specific technical skills Austin doesn't have
    Examples: Hardware engineering, deep ML research, specific unfamiliar frameworks
@@ -229,6 +244,7 @@ TRADITIONAL PM RESUME if:
 - Keywords: "roadmap", "backlog", "PRD", "user stories", "sprint", "stakeholder", "KPI", "product strategy", "agile", "scrum"
 - Lacks significant AI/edge keywords (< 5 mentions)
 - Traditional SaaS, B2B, enterprise software
+- Also good for: Platform PM, API products, integration-heavy products, workflow automation
 
 DEFAULT: Traditional PM if unclear
 """
@@ -245,6 +261,13 @@ Mark as PRIORITY (recommend extra touches) if ANY of these apply:
 5. Compensation: Sweet spot $120k-$140k
 6. Keywords: "basketball", "sports", "biomechanics", "motion", "coaching", "performance"
 7. Remote with reasonable requirements
+8. B2B SaaS / Enterprise Products:
+   - Enterprise SaaS platforms
+   - API-driven products
+   - Multi-tenant systems
+   - Integration-heavy products
+   - Workflow automation platforms
+   - Platform PM roles
 
 Extra Touches to Recommend for Priority:
 - Craft detailed, highly personalized cover letter
@@ -310,6 +333,22 @@ KEY PRODUCTS BUILT:
 
 4. Onsite Capture - Operations Platform
    - Multi-camera capture platform for high-volume environments
+
+PREVIOUS ROLE:
+Product Lead / Co-Founder at 1872 Consulting, LLC (Jun 2015 – Dec 2024)
+- Led modernization of enterprise HRIS platform (B2B SaaS): legacy AS400 → API-driven system
+- Designed multi-tenant compliance systems for Fortune 100 clients
+- Built API-driven integrations and automation workflows across enterprise platforms
+- Product strategy for scalable SaaS platform serving recruitment industry
+- Drove 126% revenue growth, closed $1.1M Fortune 100 contract
+
+DOMAIN EXPERTISE:
+- Sports Technology: Basketball shooting analysis, motion capture, performance analytics
+- AI Product Development: 0→1 product creation, AI interpretability, prompt engineering
+- B2B SaaS: Enterprise product management, platform development, scalable systems
+- Product Platforms: Multi-tenant architecture, API-driven products, integration workflows
+- Edge AI: Real-time processing, on-device inference, multi-camera systems
+- Computer Vision: 3D reconstruction, pose estimation, video analytics
 
 TECHNICAL EXPERTISE:
 - Computer vision: MediaPipe BlazePose, OpenCV, pose estimation

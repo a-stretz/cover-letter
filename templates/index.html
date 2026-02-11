@@ -251,23 +251,21 @@
             margin-bottom: 4px;
         }
 
-        /* New Job Button at top */
-        .new-job-btn-container {
-            margin-bottom: 20px;
-            display: none;
+        /* New Job Button at bottom */
+        .new-job-btn-bottom {
+            margin-top: 24px;
+            text-align: center;
+            padding: 20px 0;
         }
-        .new-job-btn-container.visible {
-            display: block;
+        .btn-new-job {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            color: white;
+            padding: 16px 40px;
+            font-size: 16px;
+            border-radius: 10px;
         }
-        .btn-outline {
-            background: white;
-            color: #0066cc;
-            border: 2px solid #0066cc;
-            width: auto;
-            padding: 10px 20px;
-        }
-        .btn-outline:hover {
-            background: #e8f4fd;
+        .btn-new-job:hover:not(:disabled) {
+            box-shadow: 0 4px 12px rgba(23,162,184,0.3);
         }
 
         /* Stop button */
@@ -667,13 +665,6 @@
 
         <!-- Analyze Tab -->
         <div id="analyzeTab">
-            <!-- New Job Button - only visible after analysis -->
-            <div id="newJobBtnContainer" class="new-job-btn-container">
-                <button class="btn btn-outline" onclick="resetForm()">
-                    ← ANALYZE NEW JOB
-                </button>
-            </div>
-
             <div class="card">
                 <h2>Paste Job Description</h2>
                 <div class="input-group">
@@ -842,6 +833,12 @@
                     </div>
                 </div>
 
+                <!-- Analyze New Job Button - at bottom after all results -->
+                <div id="newJobBtnContainer" class="new-job-btn-bottom">
+                    <button class="btn btn-new-job" onclick="resetForm()">
+                        ANALYZE NEW JOB
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -958,7 +955,6 @@
             stopBtn.style.display = 'inline-block';
             hideError();
             document.getElementById('results').style.display = 'none';
-            document.getElementById('newJobBtnContainer').classList.remove('visible');
 
             try {
                 const response = await fetch('/api/analyze', {
@@ -973,9 +969,6 @@
 
                 currentJobId = data.job_id;
                 displayResults(data);
-
-                // Show the new job button at top
-                document.getElementById('newJobBtnContainer').classList.add('visible');
 
             } catch (error) {
                 if (error.name === 'AbortError') {
