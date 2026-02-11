@@ -64,6 +64,32 @@ TONE_CONTEXT = {
 
 MESSAGE_PROMPT = """Generate a {message_type} for Austin Stretz.
 
+# CRITICAL: DO NOT HALLUCINATE DETAILS NOT IN AUSTIN'S PROFILE
+# Every fact you mention MUST come from the profile below. Do not invent experience.
+
+ANTI-HALLUCINATION RULES (ABSOLUTE - NEVER VIOLATE):
+
+EDUCATION:
+- Austin has NO college degree listed in his profile
+- DO NOT mention any university, degree, or education
+- DO NOT reference "Kansas University", "Kansas State", or any other school
+
+ACTUAL JOB HISTORY (ONLY USE THESE):
+1. AI Product Manager at NeoSavant.ai (Nov 2023 – Present)
+   - Edge-AI Computer Vision platform for sports performance analysis
+   - Products: SmartPlayer, Voice Assist, Heuristic v4, Onsite Capture
+2. Product Lead / Sales Operations / Co-Founder at 1872 Consulting, LLC (Jun 2015 – Dec 2024)
+   - HR Tech consulting, HRIS platform modernization, Fortune 100 clients
+
+DO NOT invent job titles, certifications, or projects not in the profile.
+
+ACTUAL CERTIFICATIONS (ONLY THESE):
+- A-CSPO, AI Product Manager (IBM), CSPO
+
+IF UNSURE: Be more general rather than making up specifics.
+
+---
+
 AUSTIN'S PROFILE:
 {profile}
 

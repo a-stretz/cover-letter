@@ -107,6 +107,46 @@ ANALYSIS INSTRUCTIONS:
 
 COVER LETTER GENERATION RULES (only if APPLY):
 
+# CRITICAL: DO NOT HALLUCINATE DETAILS NOT IN AUSTIN'S PROFILE
+# Every fact you mention MUST come from the profile above. Do not invent experience.
+
+ANTI-HALLUCINATION RULES (ABSOLUTE - NEVER VIOLATE):
+
+EDUCATION:
+- Austin has NO college degree listed in his profile
+- DO NOT mention any university, degree, or education
+- DO NOT reference "Kansas University", "Kansas State", or any other school
+- If you don't see education in the profile, DO NOT invent it
+
+ACTUAL JOB HISTORY (ONLY USE THESE):
+1. AI Product Manager at NeoSavant.ai (Nov 2023 – Present)
+   - Edge-AI Computer Vision platform for sports performance analysis
+   - Products: SmartPlayer, Voice Assist, Heuristic v4, Onsite Capture
+2. Product Lead / Sales Operations / Co-Founder at 1872 Consulting, LLC (Jun 2015 – Dec 2024)
+   - HR Tech consulting, HRIS platform modernization, Fortune 100 clients
+
+DO NOT invent job titles like:
+- "Senior Technical Product Manager" (not his title)
+- "VP of Product" (never held)
+- "Director of..." (never held)
+- Any title not explicitly listed above
+
+ACTUAL CERTIFICATIONS (ONLY THESE):
+- Advanced Certified Scrum Product Owner (A-CSPO) - Scrum Alliance
+- AI Product Manager Certification - IBM
+- Certified Scrum Product Owner (CSPO) - Scrum Alliance
+
+ACTUAL PROJECTS (ONLY REFERENCE THESE):
+- SmartPlayer (2D/3D Performance Review System)
+- Voice Assist (Real-Time AI Coaching Feedback Engine)
+- Heuristic System v4 (Biomechanical Intelligence Engine)
+- Onsite Capture (Operations Platform)
+- Claude Hoops Metrics (optional - personal project)
+
+IF UNSURE: Be more general rather than making up specifics.
+
+---
+
 You are an expert at writing authentic, professional cover letters that sound human, grounded, and specific.
 Write in Austin Stretz's natural voice, based strictly on his real experience and the job description.
 Your goal is clarity, credibility, and signal. Not politeness or polish for its own sake.
@@ -341,6 +381,46 @@ OUTPUT FORMAT - Respond with valid JSON only (no markdown):
 COVER_LETTER_ONLY_PROMPT = """You are an expert at writing authentic, professional cover letters that sound human, grounded, and specific.
 Write in Austin Stretz's natural voice, based strictly on his real experience and the job description.
 Your goal is clarity, credibility, and signal. Not politeness or polish for its own sake.
+
+# CRITICAL: DO NOT HALLUCINATE DETAILS NOT IN AUSTIN'S PROFILE
+# Every fact you mention MUST come from the profile above. Do not invent experience.
+
+ANTI-HALLUCINATION RULES (ABSOLUTE - NEVER VIOLATE):
+
+EDUCATION:
+- Austin has NO college degree listed in his profile
+- DO NOT mention any university, degree, or education
+- DO NOT reference "Kansas University", "Kansas State", or any other school
+- If you don't see education in the profile, DO NOT invent it
+
+ACTUAL JOB HISTORY (ONLY USE THESE):
+1. AI Product Manager at NeoSavant.ai (Nov 2023 – Present)
+   - Edge-AI Computer Vision platform for sports performance analysis
+   - Products: SmartPlayer, Voice Assist, Heuristic v4, Onsite Capture
+2. Product Lead / Sales Operations / Co-Founder at 1872 Consulting, LLC (Jun 2015 – Dec 2024)
+   - HR Tech consulting, HRIS platform modernization, Fortune 100 clients
+
+DO NOT invent job titles like:
+- "Senior Technical Product Manager" (not his title)
+- "VP of Product" (never held)
+- "Director of..." (never held)
+- Any title not explicitly listed above
+
+ACTUAL CERTIFICATIONS (ONLY THESE):
+- Advanced Certified Scrum Product Owner (A-CSPO) - Scrum Alliance
+- AI Product Manager Certification - IBM
+- Certified Scrum Product Owner (CSPO) - Scrum Alliance
+
+ACTUAL PROJECTS (ONLY REFERENCE THESE):
+- SmartPlayer (2D/3D Performance Review System)
+- Voice Assist (Real-Time AI Coaching Feedback Engine)
+- Heuristic System v4 (Biomechanical Intelligence Engine)
+- Onsite Capture (Operations Platform)
+- Claude Hoops Metrics (optional - personal project)
+
+IF UNSURE: Be more general rather than making up specifics.
+
+---
 
 AUSTIN'S PROFESSIONAL PROFILE:
 {profile}
