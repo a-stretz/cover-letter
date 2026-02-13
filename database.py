@@ -153,6 +153,76 @@ def init_db():
                 pass  # Column might already exist
 
     db.commit()
+
+    # Create batch_jobs table for batch processing
+    db.execute('''
+        CREATE TABLE IF NOT EXISTS batch_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id TEXT NOT NULL,
+            job_url TEXT,
+            job_title TEXT,
+            company_name TEXT,
+            location TEXT,
+            job_snippet TEXT,
+            job_description_full TEXT,
+            posted_date TEXT,
+            salary_range TEXT,
+
+            -- Stage 1: Screening
+            screen_decision TEXT CHECK(screen_decision IN ('SCREEN_IN', 'SCREEN_OUT', 'PENDING')),
+            screen_match_score INTEGER,
+            screen_confidence TEXT CHECK(screen_confidence IN ('HIGH', 'MEDIUM', 'LOW')),
+            screen_reject_reason TEXT,
+            screen_notes TEXT,
+            screened_at TIMESTAMP,
+
+            -- Stage 2: Full analysis (links to jobs_analyzed table)
+            analysis_id INTEGER,
+            analyzed_at TIMESTAMP,
+
+            -- Application tracking
+            application_status TEXT DEFAULT 'NOT_APPLIED' CHECK(application_status IN ('NOT_APPLIED', 'APPLIED', 'INTERVIEW', 'REJECTED', 'OFFER')),
+            applied_at TIMESTAMP,
+
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            FOREIGN KEY (analysis_id) REFERENCES jobs_analyzed(id)
+        )
+    ''')
+
+    batch_indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_batch_screen_decision ON batch_jobs(screen_decision)",
+        "CREATE INDEX IF NOT EXISTS idx_batch_match_score ON batch_jobs(screen_match_score DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_batch_id ON batch_jobs(batch_id)",
+        "CREATE INDEX IF NOT EXISTS idx_batch_app_status ON batch_jobs(application_status)",
+    ]
+
+    for index_sql in batch_indexes:
+        try:
+            db.execute(index_sql)
+        except sqlite3.OperationalError:
+            pass
+
+    # Create batch_runs table to track batch imports
+    db.execute('''
+        CREATE TABLE IF NOT EXISTS batch_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id TEXT UNIQUE NOT NULL,
+            name TEXT,
+            total_jobs INTEGER DEFAULT 0,
+            screen_in_count INTEGER DEFAULT 0,
+            screen_out_count INTEGER DEFAULT 0,
+            analyzed_count INTEGER DEFAULT 0,
+            screen_mode TEXT DEFAULT 'balanced',
+            status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'screening', 'screened', 'analyzing', 'complete')),
+            summary_json TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    db.commit()
     current_app.teardown_appcontext(close_db)
 
 
@@ -323,3 +393,124 @@ def get_job_details(job_id):
     """Get full details for a specific job"""
     db = get_db()
     return db.execute('SELECT * FROM jobs_analyzed WHERE id = ?', (job_id,)).fetchone()
+
+
+# --- Batch Processing Functions ---
+
+def create_batch_run(batch_id, name, total_jobs, screen_mode="balanced"):
+    """Create a new batch run record."""
+    db = get_db()
+    db.execute(
+        '''INSERT INTO batch_runs (batch_id, name, total_jobs, screen_mode, status)
+           VALUES (?, ?, ?, ?, 'pending')''',
+        (batch_id, name, total_jobs, screen_mode)
+    )
+    db.commit()
+
+
+def update_batch_run(batch_id, **kwargs):
+    """Update batch run fields."""
+    db = get_db()
+    sets = []
+    params = []
+    for key, value in kwargs.items():
+        sets.append(f"{key} = ?")
+        params.append(value)
+    sets.append("updated_at = CURRENT_TIMESTAMP")
+    params.append(batch_id)
+    db.execute(f"UPDATE batch_runs SET {', '.join(sets)} WHERE batch_id = ?", params)
+    db.commit()
+
+
+def save_batch_jobs(batch_id, jobs):
+    """Save a list of jobs for a batch. Jobs should have screening results."""
+    db = get_db()
+    for job in jobs:
+        db.execute(
+            '''INSERT INTO batch_jobs (
+                batch_id, job_url, job_title, company_name, location,
+                job_snippet, posted_date, salary_range,
+                screen_decision, screen_match_score, screen_confidence,
+                screen_reject_reason, screen_notes, screened_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)''',
+            (
+                batch_id,
+                job.get('job_url'),
+                job.get('job_title'),
+                job.get('company_name'),
+                job.get('location'),
+                job.get('job_snippet', '')[:500],
+                job.get('posted_date'),
+                job.get('salary_range'),
+                job.get('decision', 'PENDING'),
+                job.get('match_score'),
+                job.get('confidence'),
+                job.get('primary_reject_reason'),
+                job.get('quick_notes'),
+            )
+        )
+    db.commit()
+
+
+def get_batch_runs(limit=50):
+    """Get all batch runs, newest first."""
+    db = get_db()
+    return db.execute(
+        '''SELECT * FROM batch_runs ORDER BY created_at DESC LIMIT ?''',
+        (limit,)
+    ).fetchall()
+
+
+def get_batch_run(batch_id):
+    """Get a single batch run by ID."""
+    db = get_db()
+    return db.execute(
+        'SELECT * FROM batch_runs WHERE batch_id = ?', (batch_id,)
+    ).fetchone()
+
+
+def get_batch_jobs(batch_id, decision_filter=None, sort_by="screen_match_score", limit=500):
+    """Get jobs for a batch with optional filtering."""
+    db = get_db()
+    query = 'SELECT * FROM batch_jobs WHERE batch_id = ?'
+    params = [batch_id]
+
+    if decision_filter:
+        query += ' AND screen_decision = ?'
+        params.append(decision_filter)
+
+    if sort_by == "screen_match_score":
+        query += ' ORDER BY screen_match_score DESC'
+    elif sort_by == "company_name":
+        query += ' ORDER BY company_name ASC'
+    else:
+        query += ' ORDER BY id ASC'
+
+    query += ' LIMIT ?'
+    params.append(limit)
+
+    return db.execute(query, params).fetchall()
+
+
+def update_batch_job(job_id, **kwargs):
+    """Update a single batch job record."""
+    db = get_db()
+    sets = []
+    params = []
+    for key, value in kwargs.items():
+        sets.append(f"{key} = ?")
+        params.append(value)
+    sets.append("updated_at = CURRENT_TIMESTAMP")
+    params.append(job_id)
+    db.execute(f"UPDATE batch_jobs SET {', '.join(sets)} WHERE id = ?", params)
+    db.commit()
+
+
+def override_batch_screen(job_id, new_decision):
+    """Manually override screening decision for a batch job."""
+    db = get_db()
+    db.execute(
+        '''UPDATE batch_jobs SET screen_decision = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?''',
+        (new_decision, job_id)
+    )
+    db.commit()

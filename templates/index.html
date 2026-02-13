@@ -562,6 +562,65 @@
             line-height: 1.4;
         }
 
+        /* Batch Processing */
+        .batch-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+        }
+        .batch-stat {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .batch-stat .stat-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #0066cc;
+        }
+        .batch-stat .stat-label {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .batch-stat.screen-in .stat-value { color: #28a745; }
+        .batch-stat.screen-out .stat-value { color: #dc3545; }
+        .batch-stat.priority .stat-value { color: #fd7e14; }
+
+        .batch-filter.active {
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
+        }
+        .score-badge {
+            display: inline-block;
+            min-width: 28px;
+            text-align: center;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .score-badge.high { background: #d4edda; color: #155724; }
+        .score-badge.medium { background: #fff3cd; color: #856404; }
+        .score-badge.low { background: #f8d7da; color: #721c24; }
+
+        .batch-action-btn {
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .batch-action-btn:hover { background: #f0f0f0; }
+        .batch-action-btn.override { color: #28a745; border-color: #28a745; }
+        .batch-action-btn.analyze { color: #0066cc; border-color: #0066cc; }
+        .batch-action-btn.applied { background: #28a745; color: white; border-color: #28a745; }
+
         /* Follow-Up Message Generator */
         .message-generator {
             background: #f8f9fa;
@@ -747,6 +806,7 @@
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('analyze')">Analyze Job</button>
+            <button class="tab" onclick="showTab('batch')">Batch Screen</button>
             <button class="tab" onclick="showTab('history')">History</button>
         </div>
 
@@ -956,6 +1016,108 @@
             </div>
         </div>
 
+        <!-- Batch Processing Tab -->
+        <div id="batchTab" style="display: none;">
+            <!-- Import Section -->
+            <div class="card" id="batchImportSection">
+                <h2>Batch Job Import</h2>
+                <p style="color:#666; margin-bottom:16px;">Paste CSV data to screen hundreds of jobs at once. Required columns: job_title, company_name. Optional: location, job_url, job_snippet, salary_range.</p>
+
+                <div class="input-group">
+                    <label for="batchName">Batch Name (optional)</label>
+                    <input type="text" id="batchName" placeholder="e.g. LinkedIn AI PM Feb 2026">
+                </div>
+
+                <div class="input-group">
+                    <label for="csvInput">CSV Data</label>
+                    <textarea id="csvInput" style="min-height:180px; font-family:monospace; font-size:0.85rem;" placeholder="job_title,company_name,location,job_url,salary_range,job_snippet&#10;AI Product Manager,Acme Corp,Remote,https://...,120k-150k,Lead AI product strategy...&#10;Product Manager,Beta Inc,NYC - Onsite,https://...,100k-130k,Own the roadmap..."></textarea>
+                </div>
+
+                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                    <div class="input-group" style="margin-bottom:0; flex:1; min-width:200px;">
+                        <label for="screenMode">Screening Mode</label>
+                        <select id="screenMode" class="filter-select" style="width:100%;">
+                            <option value="balanced" selected>Balanced (score >= 4)</option>
+                            <option value="conservative">Conservative (score >= 6)</option>
+                            <option value="aggressive">Aggressive (score >= 2)</option>
+                        </select>
+                    </div>
+                    <button class="btn" id="batchScreenBtn" onclick="runBatchScreen()" style="margin-top:20px;">
+                        SCREEN JOBS
+                    </button>
+                </div>
+
+                <div id="batchProgress" style="display:none; margin-top:16px;">
+                    <div style="background:#e0e0e0; border-radius:8px; overflow:hidden; height:8px;">
+                        <div id="batchProgressBar" style="background:#0066cc; height:100%; width:0%; transition:width 0.3s;"></div>
+                    </div>
+                    <p id="batchProgressText" style="color:#666; font-size:0.85rem; margin-top:6px;">Screening...</p>
+                </div>
+            </div>
+
+            <!-- Screening Results -->
+            <div id="batchResultsSection" class="card" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <h2>Screening Results</h2>
+                    <div id="batchSummaryBadges" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+                </div>
+
+                <!-- Summary Stats -->
+                <div id="batchSummaryStats" class="batch-stats" style="margin:16px 0;"></div>
+
+                <!-- Filter Controls -->
+                <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+                    <button class="btn btn-secondary batch-filter active" onclick="filterBatchResults('all')">All</button>
+                    <button class="btn btn-secondary batch-filter" onclick="filterBatchResults('SCREEN_IN')">Screen In</button>
+                    <button class="btn btn-secondary batch-filter" onclick="filterBatchResults('SCREEN_OUT')">Screen Out</button>
+                    <select id="batchSort" class="filter-select" onchange="sortBatchResults()" style="margin-left:auto;">
+                        <option value="score_desc">Score (High to Low)</option>
+                        <option value="score_asc">Score (Low to High)</option>
+                        <option value="company">Company A-Z</option>
+                    </select>
+                </div>
+
+                <!-- Results Table -->
+                <div style="overflow-x:auto;">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Score</th>
+                                <th>Decision</th>
+                                <th>Company</th>
+                                <th>Title</th>
+                                <th>Location</th>
+                                <th>Notes</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batchResultsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Previous Batches -->
+            <div class="card">
+                <h2>Previous Batches</h2>
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Name</th>
+                            <th>Total</th>
+                            <th>In / Out</th>
+                            <th>Analyzed</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="batchRunsBody">
+                        <tr><td colspan="7" style="text-align:center; color:#666;">No batches yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- History Tab -->
         <div id="historyTab" style="display: none;">
             <div class="card">
@@ -1025,9 +1187,11 @@
             event.target.classList.add('active');
 
             document.getElementById('analyzeTab').style.display = tab === 'analyze' ? 'block' : 'none';
+            document.getElementById('batchTab').style.display = tab === 'batch' ? 'block' : 'none';
             document.getElementById('historyTab').style.display = tab === 'history' ? 'block' : 'none';
 
             if (tab === 'history') loadHistory();
+            if (tab === 'batch') loadBatchRuns();
         }
 
         // Helper to render bullet text (converts • or - at start of lines to HTML list)
@@ -1588,6 +1752,202 @@
 
         function hideError() {
             document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        // --- Batch Processing Functions ---
+        let currentBatchResults = [];
+        let currentBatchFilter = 'all';
+
+        async function runBatchScreen() {
+            const csvData = document.getElementById('csvInput').value.trim();
+            if (!csvData) {
+                showError('Please paste CSV data first.');
+                return;
+            }
+
+            const btn = document.getElementById('batchScreenBtn');
+            btn.disabled = true;
+            btn.textContent = 'Screening...';
+
+            document.getElementById('batchProgress').style.display = 'block';
+            document.getElementById('batchProgressBar').style.width = '30%';
+            document.getElementById('batchProgressText').textContent = 'Sending jobs for screening...';
+
+            try {
+                document.getElementById('batchProgressBar').style.width = '60%';
+                document.getElementById('batchProgressText').textContent = 'AI is screening jobs...';
+
+                const response = await fetch('/api/batch/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        csv_data: csvData,
+                        screen_mode: document.getElementById('screenMode').value,
+                        batch_name: document.getElementById('batchName').value
+                    })
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Screening failed');
+
+                document.getElementById('batchProgressBar').style.width = '100%';
+                document.getElementById('batchProgressText').textContent = `Done. ${data.summary.screen_in} of ${data.summary.total} jobs passed screening.`;
+
+                // Store results and display
+                currentBatchResults = data.results;
+                displayBatchResults(data.results, data.summary);
+                loadBatchRuns();
+
+            } catch (error) {
+                showError('Batch screening failed: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'SCREEN JOBS';
+            }
+        }
+
+        function displayBatchResults(results, summary) {
+            document.getElementById('batchResultsSection').style.display = 'block';
+
+            // Summary stats
+            const statsHtml = `
+                <div class="batch-stat"><div class="stat-value">${summary.total}</div><div class="stat-label">Total</div></div>
+                <div class="batch-stat screen-in"><div class="stat-value">${summary.screen_in}</div><div class="stat-label">Screen In</div></div>
+                <div class="batch-stat screen-out"><div class="stat-value">${summary.screen_out}</div><div class="stat-label">Screen Out</div></div>
+                <div class="batch-stat priority"><div class="stat-value">${summary.high_priority}</div><div class="stat-label">Priority (8+)</div></div>
+                <div class="batch-stat"><div class="stat-value">${summary.avg_match_score}</div><div class="stat-label">Avg Score</div></div>
+                <div class="batch-stat"><div class="stat-value">${summary.screen_in_rate}</div><div class="stat-label">Pass Rate</div></div>
+            `;
+            document.getElementById('batchSummaryStats').innerHTML = statsHtml;
+
+            // Render table
+            renderBatchTable(results);
+
+            // Scroll to results
+            document.getElementById('batchResultsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderBatchTable(results) {
+            const filtered = currentBatchFilter === 'all' ? results :
+                results.filter(r => r.decision === currentBatchFilter);
+
+            document.getElementById('batchResultsBody').innerHTML = filtered.map((r, i) => {
+                const scoreClass = r.match_score >= 7 ? 'high' : r.match_score >= 4 ? 'medium' : 'low';
+                const decisionClass = r.decision === 'SCREEN_IN' ? 'status-apply' : 'status-reject';
+                const decisionText = r.decision === 'SCREEN_IN' ? 'IN' : 'OUT';
+
+                let actions = '';
+                if (r.decision === 'SCREEN_OUT') {
+                    actions = `<button class="batch-action-btn override" onclick="overrideBatchJob(${i}, 'SCREEN_IN')">Override In</button>`;
+                } else {
+                    actions = `<button class="batch-action-btn override" onclick="overrideBatchJob(${i}, 'SCREEN_OUT')">Screen Out</button>`;
+                }
+
+                return `<tr>
+                    <td><span class="score-badge ${scoreClass}">${r.match_score || '-'}</span></td>
+                    <td><span class="status-badge ${decisionClass}">${decisionText}</span></td>
+                    <td>${r.company_name || '-'}</td>
+                    <td>${r.job_title || '-'}</td>
+                    <td>${r.location || '-'}</td>
+                    <td style="font-size:0.8rem; max-width:250px;">${r.primary_reject_reason || r.quick_notes || '-'}</td>
+                    <td>${actions}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function filterBatchResults(filter) {
+            currentBatchFilter = filter;
+            document.querySelectorAll('.batch-filter').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderBatchTable(currentBatchResults);
+        }
+
+        function sortBatchResults() {
+            const sortBy = document.getElementById('batchSort').value;
+            if (sortBy === 'score_desc') {
+                currentBatchResults.sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
+            } else if (sortBy === 'score_asc') {
+                currentBatchResults.sort((a, b) => (a.match_score || 0) - (b.match_score || 0));
+            } else if (sortBy === 'company') {
+                currentBatchResults.sort((a, b) => (a.company_name || '').localeCompare(b.company_name || ''));
+            }
+            renderBatchTable(currentBatchResults);
+        }
+
+        function overrideBatchJob(index, newDecision) {
+            if (index >= 0 && index < currentBatchResults.length) {
+                currentBatchResults[index].decision = newDecision;
+                renderBatchTable(currentBatchResults);
+            }
+        }
+
+        async function loadBatchRuns() {
+            try {
+                const response = await fetch('/api/batch/list');
+                const runs = await response.json();
+                if (!response.ok) throw new Error(runs.error);
+
+                if (runs.length === 0) {
+                    document.getElementById('batchRunsBody').innerHTML =
+                        '<tr><td colspan="7" style="text-align:center; color:#666;">No batches yet</td></tr>';
+                    return;
+                }
+
+                document.getElementById('batchRunsBody').innerHTML = runs.map(run => {
+                    const date = new Date(run.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const statusClass = run.status === 'complete' ? 'status-apply' : run.status === 'screened' ? 'status-priority' : '';
+                    return `<tr>
+                        <td>${date}</td>
+                        <td>${run.name || run.batch_id}</td>
+                        <td>${run.total_jobs}</td>
+                        <td><span style="color:#28a745;">${run.screen_in_count || 0}</span> / <span style="color:#dc3545;">${run.screen_out_count || 0}</span></td>
+                        <td>${run.analyzed_count || 0}</td>
+                        <td><span class="status-badge ${statusClass}">${run.status}</span></td>
+                        <td><button class="btn btn-secondary btn-sm" onclick="viewBatch('${run.batch_id}')">View</button></td>
+                    </tr>`;
+                }).join('');
+
+            } catch (error) {
+                console.error('Failed to load batch runs:', error);
+            }
+        }
+
+        async function viewBatch(batchId) {
+            try {
+                const response = await fetch(`/api/batch/${batchId}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error);
+
+                // Convert to display format
+                currentBatchResults = data.jobs.map(j => ({
+                    job_title: j.job_title,
+                    company_name: j.company_name,
+                    location: j.location,
+                    decision: j.screen_decision,
+                    match_score: j.screen_match_score,
+                    confidence: j.screen_confidence,
+                    primary_reject_reason: j.screen_reject_reason,
+                    quick_notes: j.screen_notes,
+                    job_url: j.job_url,
+                    batch_job_id: j.id,
+                    analysis_id: j.analysis_id,
+                    application_status: j.application_status
+                }));
+
+                const summary = data.batch.summary || {
+                    total: data.batch.total_jobs,
+                    screen_in: data.batch.screen_in_count || 0,
+                    screen_out: data.batch.screen_out_count || 0,
+                    high_priority: 0,
+                    avg_match_score: 0,
+                    screen_in_rate: '0%'
+                };
+
+                displayBatchResults(currentBatchResults, summary);
+
+            } catch (error) {
+                showError('Failed to load batch: ' + error.message);
+            }
         }
 
         // Keyboard shortcut: Escape to close modal

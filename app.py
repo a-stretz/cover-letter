@@ -11,13 +11,17 @@ from dotenv import load_dotenv
 
 from database import (
     init_db, get_db, save_job_analysis, update_job_cover_letter,
-    get_jobs_history, get_job_details, save_follow_up_message
+    get_jobs_history, get_job_details, save_follow_up_message,
+    create_batch_run, update_batch_run, save_batch_jobs,
+    get_batch_runs, get_batch_run, get_batch_jobs,
+    update_batch_job, override_batch_screen
 )
 from analyzer import analyze_and_generate
 from cover_letter import save_cover_letter_docx, get_output_directory
 from message_generator import generate_follow_up_message, save_message_to_file
 from jd_saver import save_job_description_file
 from resume_selector import select_resume
+from batch_screener import parse_csv, screen_jobs, generate_batch_summary
 
 load_dotenv()
 
@@ -323,6 +327,239 @@ def update_status(job_id):
     db.commit()
 
     return jsonify({'success': True})
+
+
+# --- Batch Processing Endpoints ---
+
+@app.route('/api/batch/import', methods=['POST'])
+def batch_import():
+    """
+    Import jobs from CSV and run quick screening.
+    Accepts: CSV text in body, screen_mode parameter, optional batch_name.
+    Returns: batch_id, screening results, summary.
+    """
+    data = request.get_json()
+
+    if not data or not data.get('csv_data'):
+        return jsonify({'error': 'CSV data is required'}), 400
+
+    csv_data = data['csv_data']
+    screen_mode = data.get('screen_mode', 'balanced')
+    batch_name = data.get('batch_name', '')
+
+    try:
+        # Parse CSV
+        jobs = parse_csv(csv_data)
+        if not jobs:
+            return jsonify({'error': 'No valid jobs found in CSV'}), 400
+
+        # Generate batch ID
+        import uuid
+        batch_id = str(uuid.uuid4())[:8]
+
+        if not batch_name:
+            batch_name = f"Batch {datetime.now().strftime('%m/%d %I:%M%p')} ({len(jobs)} jobs)"
+
+        # Create batch run record
+        create_batch_run(batch_id, batch_name, len(jobs), screen_mode)
+        update_batch_run(batch_id, status='screening')
+
+        # Screen jobs
+        results = screen_jobs(jobs, mode=screen_mode)
+
+        # Save to database
+        save_batch_jobs(batch_id, results)
+
+        # Generate summary
+        summary = generate_batch_summary(results)
+
+        # Update batch run with results
+        update_batch_run(
+            batch_id,
+            status='screened',
+            screen_in_count=summary['screen_in'],
+            screen_out_count=summary['screen_out'],
+            summary_json=json.dumps(summary)
+        )
+
+        return jsonify({
+            'batch_id': batch_id,
+            'batch_name': batch_name,
+            'summary': summary,
+            'results': [
+                {
+                    'job_title': r.get('job_title', ''),
+                    'company_name': r.get('company_name', ''),
+                    'location': r.get('location', ''),
+                    'decision': r.get('decision', ''),
+                    'match_score': r.get('match_score', 0),
+                    'confidence': r.get('confidence', ''),
+                    'primary_reject_reason': r.get('primary_reject_reason'),
+                    'quick_notes': r.get('quick_notes', ''),
+                } for r in results
+            ]
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/batch/list')
+def batch_list():
+    """Get all batch runs."""
+    try:
+        runs = get_batch_runs()
+        return jsonify([dict(r) for r in runs])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/batch/<batch_id>')
+def batch_detail(batch_id):
+    """Get batch run details with jobs."""
+    try:
+        run = get_batch_run(batch_id)
+        if not run:
+            return jsonify({'error': 'Batch not found'}), 404
+
+        decision_filter = request.args.get('filter')
+        sort_by = request.args.get('sort', 'screen_match_score')
+
+        jobs = get_batch_jobs(batch_id, decision_filter=decision_filter, sort_by=sort_by)
+
+        run_dict = dict(run)
+        if run_dict.get('summary_json'):
+            try:
+                run_dict['summary'] = json.loads(run_dict['summary_json'])
+            except json.JSONDecodeError:
+                pass
+
+        return jsonify({
+            'batch': run_dict,
+            'jobs': [dict(j) for j in jobs]
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/batch/job/<int:job_id>/override', methods=['POST'])
+def batch_override(job_id):
+    """Override screening decision for a batch job."""
+    data = request.get_json()
+    new_decision = data.get('decision')
+
+    if new_decision not in ('SCREEN_IN', 'SCREEN_OUT'):
+        return jsonify({'error': 'Decision must be SCREEN_IN or SCREEN_OUT'}), 400
+
+    try:
+        override_batch_screen(job_id, new_decision)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/batch/job/<int:job_id>/analyze', methods=['POST'])
+def batch_analyze_job(job_id):
+    """Run full JADE analysis on a single batch job."""
+    try:
+        db = get_db()
+        job = db.execute('SELECT * FROM batch_jobs WHERE id = ?', (job_id,)).fetchone()
+        if not job:
+            return jsonify({'error': 'Batch job not found'}), 404
+
+        # Use full description if available, otherwise snippet
+        job_description = job['job_description_full'] or job['job_snippet'] or ''
+        if not job_description:
+            return jsonify({'error': 'No job description available for analysis'}), 400
+
+        # Build context
+        context_parts = []
+        if job['job_url']:
+            context_parts.append(f"Job URL: {job['job_url']}")
+        if job['salary_range']:
+            context_parts.append(f"Salary: {job['salary_range']}")
+        additional_context = '\n'.join(context_parts)
+
+        # Run full analysis
+        result = analyze_and_generate(job_description, additional_context)
+
+        # Resume selection
+        try:
+            resume_selection = select_resume(job_description, use_api=True)
+            result['resume_selection'] = resume_selection
+        except Exception:
+            from resume_selector import select_resume_local
+            result['resume_selection'] = select_resume_local(job_description)
+
+        cover_letter_filepath = None
+        jd_filepath = None
+
+        # Save JD file
+        try:
+            jd_filepath = save_job_description_file(
+                job_description=job_description,
+                company_name=result.get('company_name') or job['company_name'] or '',
+                job_title=result.get('job_title') or job['job_title'] or ''
+            )
+            result['jd_filepath'] = jd_filepath
+        except Exception:
+            pass
+
+        # Save cover letter if APPLY
+        if result['decision'] == 'APPLY' and result.get('cover_letter'):
+            cover_letter_filepath = save_cover_letter_docx(
+                content=result['cover_letter'],
+                company_name=result.get('company_name') or job['company_name'] or '',
+                job_title=result.get('job_title') or job['job_title'] or ''
+            )
+            result['cover_letter_filepath'] = cover_letter_filepath
+
+        # Save to jobs_analyzed
+        resume_sel = result.get('resume_selection', {})
+        analysis_id = save_job_analysis(
+            job_description=job_description,
+            additional_context=additional_context,
+            analysis_result=result,
+            cover_letter_filepath=cover_letter_filepath,
+            jd_filepath=jd_filepath,
+            selected_resume=resume_sel.get('selected_resume'),
+            resume_confidence=resume_sel.get('confidence'),
+            resume_reasoning=resume_sel.get('reasoning')
+        )
+
+        # Link batch job to analysis
+        update_batch_job(job_id, analysis_id=analysis_id, analyzed_at=datetime.now().isoformat())
+
+        result['job_id'] = analysis_id
+        result['batch_job_id'] = job_id
+        return jsonify(result)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/batch/job/<int:job_id>/status', methods=['PUT'])
+def batch_job_status(job_id):
+    """Update application status for a batch job."""
+    data = request.get_json()
+    status = data.get('status')
+    valid = ['NOT_APPLIED', 'APPLIED', 'INTERVIEW', 'REJECTED', 'OFFER']
+    if status not in valid:
+        return jsonify({'error': f'Status must be one of: {valid}'}), 400
+
+    try:
+        kwargs = {'application_status': status}
+        if status == 'APPLIED':
+            kwargs['applied_at'] = datetime.now().isoformat()
+        update_batch_job(job_id, **kwargs)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
