@@ -118,10 +118,19 @@ def parse_csv(csv_text: str) -> list:
     jobs = []
     for row in reader:
         # Normalize column names (handle various CSV formats)
+        # Guard against None keys from blank/trailing CSV column headers
         job = {}
         for key, value in row.items():
+            if key is None:
+                continue
             clean_key = key.strip().lower().replace(' ', '_')
+            if not clean_key:
+                continue
             job[clean_key] = (value or '').strip()
+
+        # Skip completely empty rows
+        if not any(job.values()):
+            continue
 
         # Map common column variations
         normalized = {
@@ -133,6 +142,11 @@ def parse_csv(csv_text: str) -> list:
             'salary_range': job.get('salary_range') or job.get('salary') or job.get('compensation') or job.get('pay') or '',
             'posted_date': job.get('posted_date') or job.get('date') or job.get('date_posted') or '',
         }
+
+        # Skip rows with no title or company (not useful for screening)
+        if not normalized['job_title'] and not normalized['company_name']:
+            continue
+
         jobs.append(normalized)
 
     return jobs
@@ -187,7 +201,8 @@ def format_job_for_prompt(job: dict, index: int) -> str:
         parts.append(f"  Salary: {job['salary_range']}")
     if job.get('job_snippet'):
         # Truncate snippet to save tokens
-        snippet = job['job_snippet'][:300]
+        # Also escape curly braces so they don't interfere with .format()
+        snippet = job['job_snippet'][:300].replace('{', '{{').replace('}', '}}')
         parts.append(f"  Snippet: {snippet}")
     return '\n'.join(parts)
 
@@ -221,7 +236,11 @@ def screen_batch_api(jobs: list, batch_size: int = 20) -> list:
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            response_text = message.content[0].text.strip()
+            # Guard against None response (e.g. max_tokens hit or API anomaly)
+            raw_text = message.content[0].text if message.content else None
+            if not raw_text:
+                raise ValueError(f"Empty API response (stop_reason={message.stop_reason})")
+            response_text = raw_text.strip()
 
             # Parse JSON
             if response_text.startswith('```'):
