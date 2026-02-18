@@ -113,8 +113,15 @@ Respond with ONLY valid JSON array, no markdown."""
 
 
 def parse_csv(csv_text: str) -> list:
-    """Parse CSV text into list of job dicts."""
-    reader = csv.DictReader(io.StringIO(csv_text))
+    """Parse CSV or TSV text into list of job dicts. Auto-detects delimiter."""
+    # Auto-detect delimiter (tab vs comma)
+    first_line = csv_text.split('\n')[0] if csv_text else ''
+    if '\t' in first_line:
+        delimiter = '\t'
+    else:
+        delimiter = ','
+
+    reader = csv.DictReader(io.StringIO(csv_text), delimiter=delimiter)
     jobs = []
     for row in reader:
         # Normalize column names (handle various CSV formats)
@@ -137,10 +144,10 @@ def parse_csv(csv_text: str) -> list:
             'job_title': job.get('job_title') or job.get('title') or job.get('position') or '',
             'company_name': job.get('company_name') or job.get('company') or job.get('employer') or '',
             'location': job.get('location') or job.get('city') or job.get('job_location') or '',
-            'job_url': job.get('job_url') or job.get('url') or job.get('link') or job.get('apply_url') or '',
+            'job_url': job.get('job_url') or job.get('url') or job.get('link') or job.get('apply_url') or job.get('job_linkedin_url') or '',
             'job_snippet': job.get('job_snippet') or job.get('snippet') or job.get('description') or job.get('summary') or '',
             'salary_range': job.get('salary_range') or job.get('salary') or job.get('compensation') or job.get('pay') or '',
-            'posted_date': job.get('posted_date') or job.get('date') or job.get('date_posted') or '',
+            'posted_date': job.get('posted_date') or job.get('date') or job.get('date_posted') or job.get('posted_on') or '',
         }
 
         # Skip rows with no title or company (not useful for screening)
