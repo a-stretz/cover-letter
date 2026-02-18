@@ -13,6 +13,13 @@ import time
 from datetime import datetime
 from anthropic import Anthropic
 
+# Optional Excel support
+try:
+    import openpyxl
+    HAS_OPENPYXL = True
+except ImportError:
+    HAS_OPENPYXL = False
+
 
 def get_client():
     """Get Anthropic API client"""
@@ -110,6 +117,66 @@ OUTPUT: Return a JSON array with one object per job:
 ]
 
 Respond with ONLY valid JSON array, no markdown."""
+
+
+def parse_xlsx(file_content: bytes) -> list:
+    """Parse Excel (.xlsx) file into list of job dicts."""
+    if not HAS_OPENPYXL:
+        raise ImportError("openpyxl is required for Excel file support. Install with: pip install openpyxl")
+
+    wb = openpyxl.load_workbook(io.BytesIO(file_content), read_only=True, data_only=True)
+    ws = wb.active
+
+    jobs = []
+    headers = None
+
+    for row_idx, row in enumerate(ws.iter_rows(values_only=True)):
+        if row_idx == 0:
+            # First row is headers - normalize them
+            headers = []
+            for cell in row:
+                if cell is None:
+                    headers.append(None)
+                else:
+                    headers.append(str(cell).strip().lower().replace(' ', '_'))
+            continue
+
+        if not headers:
+            continue
+
+        # Build job dict from row
+        job = {}
+        for col_idx, cell in enumerate(row):
+            if col_idx >= len(headers) or headers[col_idx] is None:
+                continue
+            clean_key = headers[col_idx]
+            if not clean_key:
+                continue
+            job[clean_key] = str(cell).strip() if cell is not None else ''
+
+        # Skip completely empty rows
+        if not any(job.values()):
+            continue
+
+        # Map common column variations (same as CSV)
+        normalized = {
+            'job_title': job.get('job_title') or job.get('title') or job.get('position') or '',
+            'company_name': job.get('company_name') or job.get('company') or job.get('employer') or '',
+            'location': job.get('location') or job.get('city') or job.get('job_location') or '',
+            'job_url': job.get('job_url') or job.get('url') or job.get('link') or job.get('apply_url') or job.get('job_linkedin_url') or '',
+            'job_snippet': job.get('job_snippet') or job.get('snippet') or job.get('description') or job.get('summary') or '',
+            'salary_range': job.get('salary_range') or job.get('salary') or job.get('compensation') or job.get('pay') or '',
+            'posted_date': job.get('posted_date') or job.get('date') or job.get('date_posted') or job.get('posted_on') or '',
+        }
+
+        # Skip rows with no title or company
+        if not normalized['job_title'] and not normalized['company_name']:
+            continue
+
+        jobs.append(normalized)
+
+    wb.close()
+    return jobs
 
 
 def parse_csv(csv_text: str) -> list:

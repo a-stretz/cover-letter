@@ -1033,6 +1033,21 @@
                     <textarea id="csvInput" style="min-height:180px; font-family:monospace; font-size:0.85rem;" placeholder="job_title,company_name,location,job_url,salary_range,job_snippet&#10;AI Product Manager,Acme Corp,Remote,https://...,120k-150k,Lead AI product strategy...&#10;Product Manager,Beta Inc,NYC - Onsite,https://...,100k-130k,Own the roadmap..."></textarea>
                 </div>
 
+                <div class="file-upload-divider" style="display:flex; align-items:center; gap:12px; margin:16px 0;">
+                    <div style="flex:1; height:1px; background:#ddd;"></div>
+                    <span style="color:#666; font-size:0.85rem;">OR upload a file</span>
+                    <div style="flex:1; height:1px; background:#ddd;"></div>
+                </div>
+
+                <div class="input-group">
+                    <label for="fileInput">Upload CSV or Excel File</label>
+                    <div class="file-upload-wrapper" style="display:flex; gap:12px; align-items:center;">
+                        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileSelect(event)" style="flex:1;">
+                        <span id="fileStatus" style="color:#666; font-size:0.85rem;"></span>
+                    </div>
+                    <p style="color:#888; font-size:0.8rem; margin-top:6px;">Supported: .csv, .xlsx (Excel)</p>
+                </div>
+
                 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                     <div class="input-group" style="margin-bottom:0; flex:1; min-width:200px;">
                         <label for="screenMode">Screening Mode</label>
@@ -1757,11 +1772,35 @@
         // --- Batch Processing Functions ---
         let currentBatchResults = [];
         let currentBatchFilter = 'all';
+        let selectedFile = null;
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            const statusEl = document.getElementById('fileStatus');
+
+            if (file) {
+                selectedFile = file;
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (!['csv', 'xlsx', 'xls'].includes(ext)) {
+                    statusEl.innerHTML = '<span style="color:#dc3545;">Invalid file type</span>';
+                    selectedFile = null;
+                    return;
+                }
+                statusEl.innerHTML = `<span style="color:#28a745;">Selected: ${file.name}</span>`;
+                // Clear CSV textarea when file is selected
+                document.getElementById('csvInput').value = '';
+            } else {
+                selectedFile = null;
+                statusEl.textContent = '';
+            }
+        }
 
         async function runBatchScreen() {
             const csvData = document.getElementById('csvInput').value.trim();
-            if (!csvData) {
-                showError('Please paste CSV data first.');
+
+            // Check if we have either CSV data or a file
+            if (!csvData && !selectedFile) {
+                showError('Please paste CSV data or upload a file.');
                 return;
             }
 
@@ -1777,15 +1816,31 @@
                 document.getElementById('batchProgressBar').style.width = '60%';
                 document.getElementById('batchProgressText').textContent = 'AI is screening jobs...';
 
-                const response = await fetch('/api/batch/import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        csv_data: csvData,
-                        screen_mode: document.getElementById('screenMode').value,
-                        batch_name: document.getElementById('batchName').value
-                    })
-                });
+                let response;
+
+                if (selectedFile) {
+                    // Use FormData for file upload
+                    const formData = new FormData();
+                    formData.append('file', selectedFile);
+                    formData.append('screen_mode', document.getElementById('screenMode').value);
+                    formData.append('batch_name', document.getElementById('batchName').value);
+
+                    response = await fetch('/api/batch/import', {
+                        method: 'POST',
+                        body: formData
+                    });
+                } else {
+                    // Use JSON for CSV text
+                    response = await fetch('/api/batch/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            csv_data: csvData,
+                            screen_mode: document.getElementById('screenMode').value,
+                            batch_name: document.getElementById('batchName').value
+                        })
+                    });
+                }
 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Screening failed');
@@ -1797,6 +1852,11 @@
                 currentBatchResults = data.results;
                 displayBatchResults(data.results, data.summary);
                 loadBatchRuns();
+
+                // Clear file input after success
+                selectedFile = null;
+                document.getElementById('fileInput').value = '';
+                document.getElementById('fileStatus').textContent = '';
 
             } catch (error) {
                 showError('Batch screening failed: ' + error.message);

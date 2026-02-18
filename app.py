@@ -21,7 +21,7 @@ from cover_letter import save_cover_letter_docx, get_output_directory
 from message_generator import generate_follow_up_message, save_message_to_file
 from jd_saver import save_job_description_file
 from resume_selector import select_resume
-from batch_screener import parse_csv, screen_jobs, generate_batch_summary
+from batch_screener import parse_csv, parse_xlsx, screen_jobs, generate_batch_summary, HAS_OPENPYXL
 
 load_dotenv()
 
@@ -334,24 +334,57 @@ def update_status(job_id):
 @app.route('/api/batch/import', methods=['POST'])
 def batch_import():
     """
-    Import jobs from CSV and run quick screening.
-    Accepts: CSV text in body, screen_mode parameter, optional batch_name.
+    Import jobs from CSV/Excel and run quick screening.
+    Accepts: CSV text in body OR file upload (multipart/form-data).
     Returns: batch_id, screening results, summary.
     """
-    data = request.get_json()
+    jobs = None
+    screen_mode = 'balanced'
+    batch_name = ''
 
-    if not data or not data.get('csv_data'):
-        return jsonify({'error': 'CSV data is required'}), 400
+    # Check if this is a file upload (multipart/form-data) or JSON
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        # File upload
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
 
-    csv_data = data['csv_data']
-    screen_mode = data.get('screen_mode', 'balanced')
-    batch_name = data.get('batch_name', '')
+        file = request.files['file']
+        if not file or not file.filename:
+            return jsonify({'error': 'No file selected'}), 400
+
+        screen_mode = request.form.get('screen_mode', 'balanced')
+        batch_name = request.form.get('batch_name', '')
+
+        filename = file.filename.lower()
+
+        try:
+            if filename.endswith('.xlsx') or filename.endswith('.xls'):
+                if not HAS_OPENPYXL:
+                    return jsonify({'error': 'Excel support requires openpyxl. Install with: pip install openpyxl'}), 400
+                jobs = parse_xlsx(file.read())
+            elif filename.endswith('.csv'):
+                csv_text = file.read().decode('utf-8', errors='ignore')
+                jobs = parse_csv(csv_text)
+            else:
+                return jsonify({'error': 'Unsupported file type. Use .csv or .xlsx'}), 400
+        except Exception as e:
+            return jsonify({'error': f'Failed to parse file: {str(e)}'}), 400
+    else:
+        # JSON body with CSV data
+        data = request.get_json()
+
+        if not data or not data.get('csv_data'):
+            return jsonify({'error': 'CSV data or file upload is required'}), 400
+
+        csv_data = data['csv_data']
+        screen_mode = data.get('screen_mode', 'balanced')
+        batch_name = data.get('batch_name', '')
+
+        jobs = parse_csv(csv_data)
 
     try:
-        # Parse CSV
-        jobs = parse_csv(csv_data)
         if not jobs:
-            return jsonify({'error': 'No valid jobs found in CSV'}), 400
+            return jsonify({'error': 'No valid jobs found. Check that your file has job_title and/or company_name columns.'}), 400
 
         # Generate batch ID
         import uuid
