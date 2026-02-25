@@ -202,6 +202,26 @@
             font-size: 0.85rem;
         }
 
+        .cost-badge {
+            padding: 4px 10px;
+            background: #f5f5f5;
+            color: #666;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-family: monospace;
+            margin-left: auto;
+        }
+
+        .cost-badge.opus {
+            background: #f3e8ff;
+            color: #7c3aed;
+        }
+
+        .cost-badge.haiku {
+            background: #ecfdf5;
+            color: #059669;
+        }
+
         .company-title {
             margin-left: auto;
             text-align: right;
@@ -841,6 +861,7 @@
                         <span id="decisionBadge" class="decision-badge"></span>
                         <span id="resumeBadge" class="resume-badge"></span>
                         <span id="priorityBadge" class="priority-badge" style="display:none;"></span>
+                        <span id="costBadge" class="cost-badge" style="display:none;"></span>
                         <div class="company-title">
                             <div id="companyName" class="company"></div>
                             <div id="jobTitle" class="title"></div>
@@ -1304,6 +1325,27 @@
                 priorityBadge.style.display = 'inline-block';
             } else {
                 priorityBadge.style.display = 'none';
+            }
+
+            // Cost badge
+            const costBadge = document.getElementById('costBadge');
+            const costInfo = data.cost_info || {};
+            if (costInfo.model) {
+                let modelName = 'Sonnet';
+                let modelClass = '';
+                if (costInfo.model.includes('haiku')) {
+                    modelName = 'Haiku';
+                    modelClass = 'haiku';
+                } else if (costInfo.model.includes('opus')) {
+                    modelName = 'Opus';
+                    modelClass = 'opus';
+                }
+                const cost = costInfo.estimated_cost ? `$${costInfo.estimated_cost.toFixed(4)}` : '';
+                costBadge.textContent = `${modelName} ${cost}`;
+                costBadge.className = 'cost-badge ' + modelClass;
+                costBadge.style.display = 'inline-block';
+            } else {
+                costBadge.style.display = 'none';
             }
 
             // Company and title - leave blank if unknown, don't show placeholder text
@@ -1870,6 +1912,10 @@
             document.getElementById('batchResultsSection').style.display = 'block';
 
             // Summary stats
+            const costInfo = summary.cost_info || {};
+            const costDisplay = costInfo.total_cost ? `$${costInfo.total_cost.toFixed(4)}` : '--';
+            const modelName = costInfo.model ? (costInfo.model.includes('haiku') ? 'Haiku' : 'Sonnet') : 'Unknown';
+
             const statsHtml = `
                 <div class="batch-stat"><div class="stat-value">${summary.total}</div><div class="stat-label">Total</div></div>
                 <div class="batch-stat screen-in"><div class="stat-value">${summary.screen_in}</div><div class="stat-label">Screen In</div></div>
@@ -1877,6 +1923,7 @@
                 <div class="batch-stat priority"><div class="stat-value">${summary.high_priority}</div><div class="stat-label">Priority (8+)</div></div>
                 <div class="batch-stat"><div class="stat-value">${summary.avg_match_score}</div><div class="stat-label">Avg Score</div></div>
                 <div class="batch-stat"><div class="stat-value">${summary.screen_in_rate}</div><div class="stat-label">Pass Rate</div></div>
+                <div class="batch-stat" style="background:#ecfdf5;"><div class="stat-value" style="color:#059669;">${costDisplay}</div><div class="stat-label">${modelName}</div></div>
             `;
             document.getElementById('batchSummaryStats').innerHTML = statsHtml;
 

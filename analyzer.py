@@ -14,6 +14,9 @@ from profile import (
     PRIORITY_TRIGGERS,
     SAMPLE_COVER_LETTERS
 )
+from model_config import (
+    get_model, log_api_cost, PRIORITY_SCORE_THRESHOLD
+)
 
 
 def get_client():
@@ -24,7 +27,8 @@ def get_client():
     return Anthropic(api_key=api_key)
 
 
-COMBINED_PROMPT = """You are analyzing a job description for Austin Stretz and, if he should apply, generating a cover letter.
+# Static system context for caching (profile + instructions that never change)
+CACHED_SYSTEM_CONTEXT = """You are analyzing a job description for Austin Stretz and, if he should apply, generating a cover letter.
 
 AUSTIN'S PROFESSIONAL PROFILE:
 {profile}
@@ -37,73 +41,6 @@ RESUME ROUTING LOGIC:
 
 PRIORITY TRIGGERS:
 {priority_triggers}
-
----
-
-JOB DESCRIPTION:
-{job_description}
-
-ADDITIONAL CONTEXT PROVIDED BY USER:
-{additional_context}
-
----
-
-ANALYSIS INSTRUCTIONS:
-
-1. DECISION: Determine if Austin should APPLY or REJECT based on criteria above.
-
-2. DECISION SUMMARY: Provide 2-3 bullet points (not a paragraph):
-   - First bullet: Clear apply/reject rationale in one strong, direct sentence
-   - Second bullet: Primary alignment or misalignment factor
-   - Third bullet (if APPLY): What makes this a particularly good or just adequate fit
-
-3. ROLE SUMMARY: Synthesize what this role actually IS in 2-4 bullet points:
-   - What is the core function of this role?
-   - What team/department does it sit in? Who does it report to?
-   - What are they actually building or managing?
-   - What's the day-to-day focus?
-   This helps quickly understand the role without re-reading the full JD.
-
-4. EXPERIENCE MATCH SCORING (use these 4 criteria):
-   - Responsibility Alignment: How Austin's past responsibilities match their needs
-   - Domain Experience: Relevant domain/industry expertise
-   - Technical Skills: Which of Austin's technical skills match
-   - Requirements Fit: How well Austin meets their listed requirements
-
-   Score 1-10:
-   - 9-10: Exceptional fit - Austin's experience directly maps to their needs
-   - 7-8: Strong fit - Majority of experience aligns, minor gaps
-   - 5-6: Moderate fit - Some relevant experience, some gaps
-   - 3-4: Weak fit - Limited overlap, significant gaps
-   - 1-2: Poor fit - Minimal relevant experience
-
-   Provide as bullet points, not a paragraph. Be specific about which projects/skills match.
-
-5. LOCATION: Classify as Remote/Hybrid/Onsite/KC Metro. One bullet point on location fit.
-
-6. COMPENSATION: Detect salary range if mentioned.
-   IMPORTANT LOGIC: Austin's minimum is $100,000. A salary range is "In Range" if the MAXIMUM value >= $100,000.
-   Examples:
-   - $90k-$120k → IN RANGE (max $120k >= $100k)
-   - $80k-$100k → IN RANGE (max $100k >= $100k)
-   - $70k-$90k → BELOW RANGE (max $90k < $100k)
-   - $120k-$160k → IN RANGE
-   - $150k+ → IN RANGE
-   - Not mentioned → UNKNOWN
-   Output format: "[detected range] ([fit classification])" e.g., "$90k-$120k (In Range)"
-
-7. COMPANY DOMAIN: One bullet point describing the company's industry/space.
-
-8. KEYWORDS: List 5-8 key technical/domain keywords from the job posting.
-
-9. RESUME SELECTION: Choose Edge AI, AI PM, or Traditional PM based on keyword analysis.
-
-10. REJECT REASONS: If REJECT, provide as bullet points.
-
-11. IF DECISION IS APPLY: Generate a cover letter following rules below.
-    IF DECISION IS REJECT: Set cover_letter to null.
-
----
 
 COVER LETTER GENERATION RULES (only if APPLY):
 
@@ -272,7 +209,66 @@ SAMPLE COVER LETTERS FOR VOICE REFERENCE:
 
 {sample_conviva}
 
-{sample_hudl}
+{sample_hudl}"""
+
+
+# Task-specific instructions (cached separately)
+ANALYSIS_INSTRUCTIONS = """---
+
+ANALYSIS INSTRUCTIONS:
+
+1. DECISION: Determine if Austin should APPLY or REJECT based on criteria above.
+
+2. DECISION SUMMARY: Provide 2-3 bullet points (not a paragraph):
+   - First bullet: Clear apply/reject rationale in one strong, direct sentence
+   - Second bullet: Primary alignment or misalignment factor
+   - Third bullet (if APPLY): What makes this a particularly good or just adequate fit
+
+3. ROLE SUMMARY: Synthesize what this role actually IS in 2-4 bullet points:
+   - What is the core function of this role?
+   - What team/department does it sit in? Who does it report to?
+   - What are they actually building or managing?
+   - What's the day-to-day focus?
+   This helps quickly understand the role without re-reading the full JD.
+
+4. EXPERIENCE MATCH SCORING (use these 4 criteria):
+   - Responsibility Alignment: How Austin's past responsibilities match their needs
+   - Domain Experience: Relevant domain/industry expertise
+   - Technical Skills: Which of Austin's technical skills match
+   - Requirements Fit: How well Austin meets their listed requirements
+
+   Score 1-10:
+   - 9-10: Exceptional fit - Austin's experience directly maps to their needs
+   - 7-8: Strong fit - Majority of experience aligns, minor gaps
+   - 5-6: Moderate fit - Some relevant experience, some gaps
+   - 3-4: Weak fit - Limited overlap, significant gaps
+   - 1-2: Poor fit - Minimal relevant experience
+
+   Provide as bullet points, not a paragraph. Be specific about which projects/skills match.
+
+5. LOCATION: Classify as Remote/Hybrid/Onsite/KC Metro. One bullet point on location fit.
+
+6. COMPENSATION: Detect salary range if mentioned.
+   IMPORTANT LOGIC: Austin's minimum is $100,000. A salary range is "In Range" if the MAXIMUM value >= $100,000.
+   Examples:
+   - $90k-$120k → IN RANGE (max $120k >= $100k)
+   - $80k-$100k → IN RANGE (max $100k >= $100k)
+   - $70k-$90k → BELOW RANGE (max $90k < $100k)
+   - $120k-$160k → IN RANGE
+   - $150k+ → IN RANGE
+   - Not mentioned → UNKNOWN
+   Output format: "[detected range] ([fit classification])" e.g., "$90k-$120k (In Range)"
+
+7. COMPANY DOMAIN: One bullet point describing the company's industry/space.
+
+8. KEYWORDS: List 5-8 key technical/domain keywords from the job posting.
+
+9. RESUME SELECTION: Choose Edge AI, AI PM, or Traditional PM based on keyword analysis.
+
+10. REJECT REASONS: If REJECT, provide as bullet points.
+
+11. IF DECISION IS APPLY: Generate a cover letter following rules above.
+    IF DECISION IS REJECT: Set cover_letter to null.
 
 ---
 
@@ -575,31 +571,63 @@ def analyze_and_generate(job_description: str, additional_context: str = "") -> 
     """
     Analyze job description and generate cover letter in one API call.
     Returns analysis result with cover letter if decision is APPLY.
+    Uses prompt caching for efficiency.
     """
     client = get_client()
+    model = get_model("analysis")
 
-    prompt = COMBINED_PROMPT.format(
+    # Build cached system context
+    system_context = CACHED_SYSTEM_CONTEXT.format(
         profile=get_profile_summary(),
         reject_criteria=REJECT_CRITERIA,
         resume_routing=RESUME_ROUTING,
         priority_triggers=PRIORITY_TRIGGERS,
-        job_description=job_description,
-        additional_context=additional_context or "None provided",
         sample_bold=SAMPLE_COVER_LETTERS["BOLD"],
         sample_conviva=SAMPLE_COVER_LETTERS["Conviva"],
         sample_hudl=SAMPLE_COVER_LETTERS["Hudl"]
     )
 
+    # Build user message with job-specific content
+    user_content = f"""JOB DESCRIPTION:
+{job_description}
+
+ADDITIONAL CONTEXT PROVIDED BY USER:
+{additional_context or "None provided"}
+
+{ANALYSIS_INSTRUCTIONS}"""
+
+    # API call with prompt caching
     message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=model,
         max_tokens=4000,
+        system=[
+            {
+                "type": "text",
+                "text": system_context,
+                "cache_control": {"type": "ephemeral"}
+            }
+        ],
         messages=[
             {
                 "role": "user",
-                "content": prompt
+                "content": [
+                    {
+                        "type": "text",
+                        "text": ANALYSIS_INSTRUCTIONS,
+                        "cache_control": {"type": "ephemeral"}
+                    },
+                    {
+                        "type": "text",
+                        "text": f"JOB DESCRIPTION:\n{job_description}\n\nADDITIONAL CONTEXT:\n{additional_context or 'None provided'}"
+                    }
+                ]
             }
-        ]
+        ],
+        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}
     )
+
+    # Log cost info
+    cost_info = log_api_cost(model, message.usage, "Job Analysis + Cover Letter")
 
     # Extract the response text
     response_text = message.content[0].text.strip()
@@ -631,6 +659,9 @@ def analyze_and_generate(job_description: str, additional_context: str = "") -> 
         if result.get('cover_letter'):
             result['cover_letter'] = clean_cover_letter(result['cover_letter'])
 
+        # Add cost tracking info
+        result['cost_info'] = cost_info
+
         return result
 
     except json.JSONDecodeError as e:
@@ -648,37 +679,78 @@ def generate_cover_letter_only(
     company_name: str,
     job_title: str,
     resume_type: str,
-    priority_level: str
-) -> str:
+    priority_level: str,
+    match_score: float = None
+) -> dict:
     """
     Generate just a cover letter without full analysis.
     Used for override scenarios where user wants to apply despite rejection.
+
+    For priority targets (score >= 8.5), uses Opus for best quality.
+
+    Returns dict with cover_letter text and cost_info.
     """
     client = get_client()
 
-    prompt = COVER_LETTER_ONLY_PROMPT.format(
+    # Determine model based on match score (Opus for priority, Sonnet for standard)
+    is_priority = (match_score is not None and match_score >= PRIORITY_SCORE_THRESHOLD) or priority_level == "PRIORITY"
+
+    if is_priority:
+        model = get_model("cover_letter_priority")
+        print(f"Priority target (score: {match_score}) - using Opus for cover letter")
+    else:
+        model = get_model("cover_letter_standard")
+
+    # Build cached system context (same as analysis)
+    system_context = CACHED_SYSTEM_CONTEXT.format(
         profile=get_profile_summary(),
-        job_description=job_description,
-        company_name=company_name or "",
-        job_title=job_title or "",
-        resume_type=resume_type,
+        reject_criteria=REJECT_CRITERIA,
+        resume_routing=RESUME_ROUTING,
+        priority_triggers=PRIORITY_TRIGGERS,
         sample_bold=SAMPLE_COVER_LETTERS["BOLD"],
         sample_conviva=SAMPLE_COVER_LETTERS["Conviva"],
         sample_hudl=SAMPLE_COVER_LETTERS["Hudl"]
     )
 
+    # Job-specific content
+    job_context = f"""JOB DESCRIPTION:
+{job_description}
+
+COMPANY: {company_name or ""}
+JOB TITLE: {job_title or ""}
+RESUME VARIANT: {resume_type}
+
+Generate ONLY the cover letter body (exactly 3 paragraphs).
+No header, greeting, or closing signature. The system adds those.
+Output plain text ready to insert into a document."""
+
     message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=model,
         max_tokens=1500,
+        system=[
+            {
+                "type": "text",
+                "text": system_context,
+                "cache_control": {"type": "ephemeral"}
+            }
+        ],
         messages=[
             {
                 "role": "user",
-                "content": prompt
+                "content": job_context
             }
-        ]
+        ],
+        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}
     )
+
+    # Log cost
+    task_name = "Cover Letter (Opus - Priority)" if is_priority else "Cover Letter (Sonnet)"
+    cost_info = log_api_cost(model, message.usage, task_name)
 
     cover_letter = message.content[0].text.strip()
 
-    # Clean the cover letter
-    return clean_cover_letter(cover_letter)
+    return {
+        "cover_letter": clean_cover_letter(cover_letter),
+        "cost_info": cost_info,
+        "is_priority": is_priority
+    }

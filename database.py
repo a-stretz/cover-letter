@@ -86,6 +86,13 @@ def init_db():
             -- JD file path
             jd_filepath TEXT,
 
+            -- Cost tracking
+            model_used TEXT,
+            input_tokens INTEGER,
+            output_tokens INTEGER,
+            cache_read_tokens INTEGER,
+            estimated_cost REAL,
+
             -- Tracking
             status TEXT DEFAULT 'analyzed' CHECK(status IN ('analyzed', 'applied', 'interview_scheduled', 'interview_completed', 'rejected', 'offer')),
             status_updated_at TIMESTAMP,
@@ -143,6 +150,11 @@ def init_db():
         ("resume_confidence", "TEXT"),
         ("resume_reasoning", "TEXT"),
         ("resume_key_signals", "TEXT"),
+        ("model_used", "TEXT"),
+        ("input_tokens", "INTEGER"),
+        ("output_tokens", "INTEGER"),
+        ("cache_read_tokens", "INTEGER"),
+        ("estimated_cost", "REAL"),
     ]
 
     for col_name, col_type in new_columns:
@@ -233,6 +245,7 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
     analysis = analysis_result.get('analysis', {})
     experience = analysis.get('experience_match', {})
     resume_selection = analysis_result.get('resume_selection', {})
+    cost_info = analysis_result.get('cost_info', {})
 
     # Get key signals as JSON string
     key_signals = resume_selection.get('key_signals', [])
@@ -269,8 +282,13 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
             cover_letter_filepath,
             cover_letter_generated,
             role_summary,
-            jd_filepath
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            jd_filepath,
+            model_used,
+            input_tokens,
+            output_tokens,
+            cache_read_tokens,
+            estimated_cost
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (
             job_description,
             additional_context,
@@ -301,7 +319,12 @@ def save_job_analysis(job_description, additional_context, analysis_result, cove
             cover_letter_filepath,
             1 if cover_letter_filepath else 0,
             analysis.get('role_summary'),
-            jd_filepath
+            jd_filepath,
+            cost_info.get('model'),
+            cost_info.get('input_tokens'),
+            cost_info.get('output_tokens'),
+            cost_info.get('cache_read_tokens'),
+            cost_info.get('estimated_cost')
         )
     )
 

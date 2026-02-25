@@ -2,6 +2,7 @@
 Batch Job Screener - Stage 1 Quick Screening
 Processes large volumes of job postings using lightweight API calls.
 Designed for high throughput: ~25-30 jobs/minute at ~$1-3 per 1,000 jobs.
+Uses Haiku for cost-efficient screening.
 """
 
 import os
@@ -12,6 +13,8 @@ import uuid
 import time
 from datetime import datetime
 from anthropic import Anthropic
+
+from model_config import get_model, log_api_cost
 
 # Optional Excel support
 try:
@@ -27,6 +30,33 @@ def get_client():
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable not set")
     return Anthropic(api_key=api_key)
+
+
+# Cached system context for screening
+SCREENING_SYSTEM_CONTEXT = """You are a job screening assistant for Austin Stretz, an AI Product Manager.
+
+CANDIDATE PROFILE (brief):
+- Current: AI Product Manager at NeoSavant.ai (edge-AI computer vision, sports analytics)
+- Previous: Product Lead / Co-Founder at 1872 Consulting (HR Tech, B2B SaaS, Fortune 100)
+- Skills: Product strategy, computer vision, Python, AI/ML products, B2B SaaS
+- Certs: A-CSPO, AI PM (IBM), CSPO
+- Wants: Remote preferred, KC metro acceptable, $100k+ salary
+- Target roles: AI/ML PM, Technical PM, Platform PM, B2B SaaS PM, Product Owner
+
+SCREENING CRITERIA:
+Auto-REJECT if ANY:
+1. Onsite required outside KC metro
+2. Max salary < $100k (if stated)
+3. Requires 10+ years experience explicitly
+4. Not a PM/PO/TPM role (engineering IC, marketing, sales, etc.)
+5. Requires specific skills Austin lacks (hardware eng, deep ML research)
+
+SCORING (1-10):
+9-10: Dream role (AI PM, sports tech, remote, strong alignment)
+7-8: Strong match (good PM role, relevant domain, good location)
+5-6: Moderate match (PM role, some alignment, acceptable terms)
+3-4: Weak match (tangential PM role, some concerns)
+1-2: Poor match (minimal relevance, multiple concerns)"""
 
 
 # Screening thresholds by mode
@@ -73,32 +103,8 @@ KC_METRO = [
     "leawood", "prairie village", "mission", "merriam",
 ]
 
-SCREEN_PROMPT = """You are a job screening assistant for Austin Stretz, an AI Product Manager.
-
-CANDIDATE PROFILE (brief):
-- Current: AI Product Manager at NeoSavant.ai (edge-AI computer vision, sports analytics)
-- Previous: Product Lead / Co-Founder at 1872 Consulting (HR Tech, B2B SaaS, Fortune 100)
-- Skills: Product strategy, computer vision, Python, AI/ML products, B2B SaaS
-- Certs: A-CSPO, AI PM (IBM), CSPO
-- Wants: Remote preferred, KC metro acceptable, $100k+ salary
-- Target roles: AI/ML PM, Technical PM, Platform PM, B2B SaaS PM, Product Owner
-
-SCREENING CRITERIA:
-Auto-REJECT if ANY:
-1. Onsite required outside KC metro
-2. Max salary < $100k (if stated)
-3. Requires 10+ years experience explicitly
-4. Not a PM/PO/TPM role (engineering IC, marketing, sales, etc.)
-5. Requires specific skills Austin lacks (hardware eng, deep ML research)
-
-SCORING (1-10):
-9-10: Dream role (AI PM, sports tech, remote, strong alignment)
-7-8: Strong match (good PM role, relevant domain, good location)
-5-6: Moderate match (PM role, some alignment, acceptable terms)
-3-4: Weak match (tangential PM role, some concerns)
-1-2: Poor match (minimal relevance, multiple concerns)
-
-Screen these {count} jobs. For EACH job, output a JSON object.
+# User-level screening instructions (per batch)
+SCREEN_INSTRUCTIONS = """Screen these {count} jobs. For EACH job, output a JSON object.
 
 JOBS TO SCREEN:
 {jobs}
@@ -281,13 +287,21 @@ def format_job_for_prompt(job: dict, index: int) -> str:
     return '\n'.join(parts)
 
 
-def screen_batch_api(jobs: list, batch_size: int = 20) -> list:
+def screen_batch_api(jobs: list, batch_size: int = 20) -> dict:
     """
     Screen jobs using Claude API in batches.
     Processes batch_size jobs per API call for efficiency.
+    Uses Haiku for cost-efficient screening with prompt caching.
+
+    Returns dict with 'results' list and 'total_cost_info'.
     """
     client = get_client()
+    model = get_model("screening")  # Uses Haiku
     all_results = []
+    total_cost = 0
+    total_input_tokens = 0
+    total_output_tokens = 0
+    total_cache_read = 0
 
     for i in range(0, len(jobs), batch_size):
         batch = jobs[i:i + batch_size]
@@ -298,17 +312,33 @@ def screen_batch_api(jobs: list, batch_size: int = 20) -> list:
             for idx, job in enumerate(batch)
         )
 
-        prompt = SCREEN_PROMPT.format(
+        user_prompt = SCREEN_INSTRUCTIONS.format(
             count=len(batch),
             jobs=jobs_text
         )
 
         try:
+            # API call with prompt caching
             message = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=model,
                 max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}]
+                system=[
+                    {
+                        "type": "text",
+                        "text": SCREENING_SYSTEM_CONTEXT,
+                        "cache_control": {"type": "ephemeral"}
+                    }
+                ],
+                messages=[{"role": "user", "content": user_prompt}],
+                extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}
             )
+
+            # Log cost for this batch
+            cost_info = log_api_cost(model, message.usage, f"Batch Screening ({len(batch)} jobs)")
+            total_cost += cost_info['estimated_cost']
+            total_input_tokens += cost_info['input_tokens']
+            total_output_tokens += cost_info['output_tokens']
+            total_cache_read += cost_info.get('cache_read_tokens', 0)
 
             # Guard against None response (e.g. max_tokens hit or API anomaly)
             raw_text = message.content[0].text if message.content else None
@@ -358,10 +388,19 @@ def screen_batch_api(jobs: list, batch_size: int = 20) -> list:
         if i + batch_size < len(jobs):
             time.sleep(0.5)
 
-    return all_results
+    return {
+        "results": all_results,
+        "cost_info": {
+            "model": model,
+            "total_cost": round(total_cost, 6),
+            "total_input_tokens": total_input_tokens,
+            "total_output_tokens": total_output_tokens,
+            "cache_read_tokens": total_cache_read,
+        }
+    }
 
 
-def screen_jobs(jobs: list, mode: str = "balanced") -> list:
+def screen_jobs(jobs: list, mode: str = "balanced") -> dict:
     """
     Main screening function. Combines local pre-filtering with API screening.
 
@@ -370,7 +409,7 @@ def screen_jobs(jobs: list, mode: str = "balanced") -> list:
         mode: Screening mode - 'conservative', 'balanced', or 'aggressive'
 
     Returns:
-        List of job dicts with screening results added.
+        Dict with 'results' (list of jobs with screening) and 'cost_info'.
     """
     min_score = SCREEN_MODES.get(mode, SCREEN_MODES["balanced"])["min_score"]
 
@@ -388,8 +427,11 @@ def screen_jobs(jobs: list, mode: str = "balanced") -> list:
             api_job_indices.append(i)
 
     # Phase 2: API screening for remaining jobs
+    cost_info = None
     if api_jobs:
-        api_results = screen_batch_api(api_jobs)
+        api_response = screen_batch_api(api_jobs)
+        api_results = api_response["results"]
+        cost_info = api_response["cost_info"]
 
         for j, api_result in enumerate(api_results):
             if j < len(api_job_indices):
@@ -417,7 +459,10 @@ def screen_jobs(jobs: list, mode: str = "balanced") -> list:
                 "quick_notes": "Unscreened, defaulting to screen-in."
             }
 
-    return results
+    return {
+        "results": results,
+        "cost_info": cost_info
+    }
 
 
 def generate_batch_summary(results: list) -> dict:

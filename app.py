@@ -398,13 +398,19 @@ def batch_import():
         update_batch_run(batch_id, status='screening')
 
         # Screen jobs
-        results = screen_jobs(jobs, mode=screen_mode)
+        screen_response = screen_jobs(jobs, mode=screen_mode)
+        results = screen_response["results"]
+        screening_cost_info = screen_response.get("cost_info")
 
         # Save to database
         save_batch_jobs(batch_id, results)
 
         # Generate summary
         summary = generate_batch_summary(results)
+
+        # Add cost info to summary
+        if screening_cost_info:
+            summary['cost_info'] = screening_cost_info
 
         # Update batch run with results
         update_batch_run(

@@ -8,6 +8,7 @@ import json
 from anthropic import Anthropic
 
 from profile import get_profile_summary
+from model_config import get_model, log_api_cost
 
 
 def get_client():
@@ -16,6 +17,46 @@ def get_client():
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable not set")
     return Anthropic(api_key=api_key)
+
+
+# Cached system context for message generation
+MESSAGE_SYSTEM_CONTEXT = """You are generating professional messages for Austin Stretz, an AI Product Manager.
+
+# CRITICAL: DO NOT HALLUCINATE DETAILS NOT IN AUSTIN'S PROFILE
+# Every fact you mention MUST come from the profile below. Do not invent experience.
+
+ANTI-HALLUCINATION RULES (ABSOLUTE - NEVER VIOLATE):
+
+EDUCATION:
+- Austin has NO college degree listed in his profile
+- DO NOT mention any university, degree, or education
+- DO NOT reference "Kansas University", "Kansas State", or any other school
+
+ACTUAL JOB HISTORY (ONLY USE THESE):
+1. AI Product Manager at NeoSavant.ai (Nov 2023 – Present)
+   - Edge-AI Computer Vision platform for sports performance analysis
+   - Products: SmartPlayer, Voice Assist, Heuristic v4, Onsite Capture
+2. Product Lead / Sales Operations / Co-Founder at 1872 Consulting, LLC (Jun 2015 – Dec 2024)
+   - HR Tech consulting, HRIS platform modernization, Fortune 100 clients
+
+DO NOT invent job titles, certifications, or projects not in the profile.
+
+ACTUAL CERTIFICATIONS (ONLY THESE):
+- A-CSPO, AI Product Manager (IBM), CSPO
+
+IF UNSURE: Be more general rather than making up specifics.
+
+AUSTIN'S PROFILE:
+{profile}
+
+CONTENT RULES (CRITICAL):
+- NO em-dashes (— or --)
+- NO "resonated with me"
+- NO "I was drawn to"
+- Speak naturally, not like an LLM
+- Reference Austin's ACTUAL experience
+- Be specific about fit
+- Use simple punctuation (periods, commas only)"""
 
 
 MESSAGE_SPECS = {
@@ -62,36 +103,8 @@ TONE_CONTEXT = {
 }
 
 
-MESSAGE_PROMPT = """Generate a {message_type} for Austin Stretz.
-
-# CRITICAL: DO NOT HALLUCINATE DETAILS NOT IN AUSTIN'S PROFILE
-# Every fact you mention MUST come from the profile below. Do not invent experience.
-
-ANTI-HALLUCINATION RULES (ABSOLUTE - NEVER VIOLATE):
-
-EDUCATION:
-- Austin has NO college degree listed in his profile
-- DO NOT mention any university, degree, or education
-- DO NOT reference "Kansas University", "Kansas State", or any other school
-
-ACTUAL JOB HISTORY (ONLY USE THESE):
-1. AI Product Manager at NeoSavant.ai (Nov 2023 – Present)
-   - Edge-AI Computer Vision platform for sports performance analysis
-   - Products: SmartPlayer, Voice Assist, Heuristic v4, Onsite Capture
-2. Product Lead / Sales Operations / Co-Founder at 1872 Consulting, LLC (Jun 2015 – Dec 2024)
-   - HR Tech consulting, HRIS platform modernization, Fortune 100 clients
-
-DO NOT invent job titles, certifications, or projects not in the profile.
-
-ACTUAL CERTIFICATIONS (ONLY THESE):
-- A-CSPO, AI Product Manager (IBM), CSPO
-
-IF UNSURE: Be more general rather than making up specifics.
-
----
-
-AUSTIN'S PROFILE:
-{profile}
+# Task-specific message instructions (not cached - changes per request)
+MESSAGE_TASK_PROMPT = """Generate a {message_type} for Austin Stretz.
 
 JOB CONTEXT:
 Company: {company_name}
@@ -112,17 +125,6 @@ TONE: {tone}
 
 ADDITIONAL CONTEXT FROM USER:
 {additional_context}
-
----
-
-CONTENT RULES (CRITICAL):
-- NO em-dashes (— or --)
-- NO "resonated with me"
-- NO "I was drawn to"
-- Speak naturally, not like an LLM
-- Reference Austin's ACTUAL experience
-- Be specific about fit
-- Use simple punctuation (periods, commas only)
 
 {char_limit_instruction}
 
@@ -148,6 +150,7 @@ def generate_follow_up_message(
 ) -> dict:
     """
     Generate a follow-up message based on type, audience, and tone.
+    Uses prompt caching for efficiency.
 
     Args:
         message_type: One of 'linkedin_connection', 'linkedin_inmail', 'follow_up_email', 'general_fit'
@@ -159,13 +162,17 @@ def generate_follow_up_message(
         additional_context: Optional additional notes from user
 
     Returns:
-        Dictionary with message, subject (if applicable), character_count, word_count
+        Dictionary with message, subject (if applicable), character_count, word_count, cost_info
     """
     if message_type not in MESSAGE_SPECS:
         raise ValueError(f"Invalid message type: {message_type}")
 
     specs = MESSAGE_SPECS[message_type]
     client = get_client()
+    model = get_model("message")
+
+    # Build cached system context
+    system_context = MESSAGE_SYSTEM_CONTEXT.format(profile=get_profile_summary())
 
     # Build specs description
     specs_text = f"Max length: {specs.get('max_chars', specs.get('word_range', 'flexible'))}\n"
@@ -175,7 +182,7 @@ def generate_follow_up_message(
     # Character limit instruction for connection requests
     char_limit_instruction = ""
     if message_type == "linkedin_connection":
-        char_limit_instruction = f"""
+        char_limit_instruction = """
 CRITICAL: LinkedIn connection requests have a STRICT 250 character limit.
 Your message MUST be under 250 characters including spaces.
 Count carefully. Be concise. Every word must earn its place.
@@ -184,9 +191,8 @@ Count carefully. Be concise. Every word must earn its place.
     # Truncate job description for context (keep it manageable)
     job_summary = job_description[:1500] + "..." if len(job_description) > 1500 else job_description
 
-    prompt = MESSAGE_PROMPT.format(
+    user_prompt = MESSAGE_TASK_PROMPT.format(
         message_type=message_type,
-        profile=get_profile_summary(),
         company_name=company_name or "",
         job_title=job_title or "",
         job_summary=job_summary,
@@ -200,16 +206,28 @@ Count carefully. Be concise. Every word must earn its place.
         char_limit_instruction=char_limit_instruction
     )
 
+    # API call with prompt caching
     message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=model,
         max_tokens=1000,
+        system=[
+            {
+                "type": "text",
+                "text": system_context,
+                "cache_control": {"type": "ephemeral"}
+            }
+        ],
         messages=[
             {
                 "role": "user",
-                "content": prompt
+                "content": user_prompt
             }
-        ]
+        ],
+        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}
     )
+
+    # Log cost
+    cost_info = log_api_cost(model, message.usage, f"Message Generation ({specs['name']})")
 
     response_text = message.content[0].text.strip()
 
@@ -250,6 +268,7 @@ Count carefully. Be concise. Every word must earn its place.
         # Add metadata
         result['message_type'] = message_type
         result['filename_suffix'] = specs['filename_suffix']
+        result['cost_info'] = cost_info
 
         return result
 
