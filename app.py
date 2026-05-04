@@ -145,7 +145,7 @@ def override_reject():
 
         # Save to file
         cover_letter_filepath = save_cover_letter_docx(
-            content=cover_letter,
+            content=cover_letter['cover_letter'],
             company_name=job['company_name'] or '',
             job_title=job['job_title'] or ''
         )
@@ -166,7 +166,7 @@ def override_reject():
 
         return jsonify({
             'success': True,
-            'cover_letter': cover_letter,
+            'cover_letter': cover_letter['cover_letter'],
             'cover_letter_filepath': cover_letter_filepath
         })
 
