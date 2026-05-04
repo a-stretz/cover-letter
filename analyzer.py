@@ -231,24 +231,9 @@ ANALYSIS INSTRUCTIONS:
    - What's the day-to-day focus?
    This helps quickly understand the role without re-reading the full JD.
 
-4. EXPERIENCE MATCH SCORING (use these 4 criteria):
-   - Responsibility Alignment: How Austin's past responsibilities match their needs
-   - Domain Experience: Relevant domain/industry expertise
-   - Technical Skills: Which of Austin's technical skills match
-   - Requirements Fit: How well Austin meets their listed requirements
+4. LOCATION: Classify as Remote/Hybrid/Onsite/KC Metro. One bullet point on location fit.
 
-   Score 1-10:
-   - 9-10: Exceptional fit - Austin's experience directly maps to their needs
-   - 7-8: Strong fit - Majority of experience aligns, minor gaps
-   - 5-6: Moderate fit - Some relevant experience, some gaps
-   - 3-4: Weak fit - Limited overlap, significant gaps
-   - 1-2: Poor fit - Minimal relevant experience
-
-   Provide as bullet points, not a paragraph. Be specific about which projects/skills match.
-
-5. LOCATION: Classify as Remote/Hybrid/Onsite/KC Metro. One bullet point on location fit.
-
-6. COMPENSATION: Detect salary range if mentioned.
+5. COMPENSATION: Detect salary range if mentioned.
    IMPORTANT LOGIC: Austin's minimum is $100,000. A salary range is "In Range" if the MAXIMUM value >= $100,000.
    Examples:
    - $90k-$120k → IN RANGE (max $120k >= $100k)
@@ -259,15 +244,15 @@ ANALYSIS INSTRUCTIONS:
    - Not mentioned → UNKNOWN
    Output format: "[detected range] ([fit classification])" e.g., "$90k-$120k (In Range)"
 
-7. COMPANY DOMAIN: One bullet point describing the company's industry/space.
+6. COMPANY DOMAIN: One bullet point describing the company's industry/space.
 
-8. KEYWORDS: List 5-8 key technical/domain keywords from the job posting.
+7. KEYWORDS: List 5-8 key technical/domain keywords from the job posting.
 
-9. RESUME SELECTION: Choose Edge AI, AI PM, or Traditional PM based on keyword analysis.
+8. RESUME SELECTION: Choose Edge AI, AI PM, or Traditional PM based on keyword analysis.
 
-10. REJECT REASONS: If REJECT, provide as bullet points.
+9. REJECT REASONS: If REJECT, provide as bullet points.
 
-11. IF DECISION IS APPLY: Generate a cover letter following rules above.
+10. IF DECISION IS APPLY: Generate a cover letter following rules above.
     IF DECISION IS REJECT: Set cover_letter to null.
 
 ---
@@ -286,15 +271,6 @@ OUTPUT FORMAT - Respond with valid JSON only (no markdown):
     "compensation_range": "detected range or 'Not specified'",
     "compensation_fit": "Below Range" or "In Range" or "Above Range" or "Unknown",
     "company_domain": "One bullet point about company's industry/space",
-    "experience_match": {{
-      "score": 1-10,
-      "label": "Exceptional Fit" or "Strong Fit" or "Moderate Fit" or "Weak Fit" or "Poor Fit",
-      "summary": "3-5 bullet points as a single string covering all 4 criteria",
-      "responsibility_alignment": "brief bullet",
-      "domain_experience": "brief bullet",
-      "technical_skills": "brief bullet on matching skills",
-      "requirements_fit": "brief bullet"
-    }},
     "keywords_detected": "comma-separated list of 5-8 keywords",
     "reject_reasons": ["reason1", "reason2"] or [],
     "priority_reasons": ["reason1", "reason2"] or []
