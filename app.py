@@ -139,7 +139,7 @@ def override_reject():
             job_description=job['job_description'],
             company_name=job['company_name'] or '',
             job_title=job['job_title'] or '',
-            resume_type=job['recommended_resume'] or 'Traditional PM',
+            resume_type=job['selected_resume'] or 'Traditional PM',
             priority_level='STANDARD'
         )
 
