@@ -44,7 +44,7 @@ def fetch_job_content(url: str, exa=None) -> Optional[str]:
         exa = _get_exa_client()
 
     try:
-        results = exa.get_contents([url], text=True)
+        results = exa.get_contents([url], text={"max_characters": _MAX_CHARS})
         if not results or not results.results:
             return None
         item = results.results[0]
