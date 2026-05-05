@@ -79,7 +79,7 @@ COMPANIES: list[dict] = [
         "tier": 2,
         "greenhouse_board_token": None,
         "lever_company": None,
-        "exa_query": "technical product manager AI Kansas City remote jobs 2024 site:linkedin.com OR site:indeed.com",
+        "exa_query": "technical product manager AI Kansas City remote jobs site:linkedin.com OR site:indeed.com",
         "notes": "Placeholder — replace with local KC AI company target",
     },
     # ── Tier 3: Opportunistic ──────────────────────────────────────────────
@@ -88,7 +88,7 @@ COMPANIES: list[dict] = [
         "tier": 3,
         "greenhouse_board_token": None,
         "lever_company": None,
-        "exa_query": "Google DeepMind technical product manager computer vision remote jobs 2024",
+        "exa_query": "Google DeepMind technical product manager computer vision remote jobs",
         "notes": "Large surface; targeting CV/AI PM roles specifically — low conversion but high value if landed",
     },
     {
@@ -96,7 +96,7 @@ COMPANIES: list[dict] = [
         "tier": 3,
         "greenhouse_board_token": None,
         "lever_company": None,
-        "exa_query": "Meta Reality Labs product manager computer vision pose estimation jobs 2024",
+        "exa_query": "Meta Reality Labs product manager computer vision pose estimation jobs",
         "notes": "Pose estimation + CV alignment with wearable/AR hardware surface",
     },
 ]
