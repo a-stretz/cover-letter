@@ -2,13 +2,13 @@
 Scout Fetch — retrieve full job description text via Exa.
 
 Uses exa.get_contents() to pull the rendered page for each job URL.
-Content is truncated to ~3000 words to keep scoring prompts lean.
+Content is truncated to ~300-350 words to keep scoring prompts lean.
 """
 
 import os
 from typing import Optional
 
-_MAX_CHARS = 12_000  # ~3000 words, fits comfortably in a Sonnet context window
+_MAX_CHARS = 2_000  # ~300-350 words, fits comfortably in a Sonnet context window
 
 
 def _get_exa_client():
